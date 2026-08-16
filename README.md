@@ -265,9 +265,10 @@ HYDRO-FLOW-AI/
 │   ├── interim/
 │   ├── processed/
 │   └── derived/
-├── src/hydro_flow_ai/
-│   ├── __init__.py
-│   └── reconstruct_dataset.py
+├── src/
+│   └── hydro_flow_ai/
+│       ├── __init__.py
+│       └── reconstruct_dataset.py
 ├── tests/
 ├── configs/
 ├── notebooks/
@@ -278,7 +279,7 @@ HYDRO-FLOW-AI/
 │   └── metrics/
 ├── docs/
 │   └── assets/
-│       └── banner.svg
+│       └── HYDRO-FLOW-AI-banner.png
 ├── README.md
 ├── pyproject.toml
 ├── requirements.txt

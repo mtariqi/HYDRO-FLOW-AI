@@ -72,7 +72,7 @@ Observed record: 2012–2019, daily. The current workflow combines observed USGS
 
 End-to-end research pipeline
 
-# HYDRO-FLOW-AI
+# PIPELINE LOGIC
 
 **Extreme-aware AI framework for streamflow prediction and NWM bias correction**, built on hydrometeorological data, temporal feature engineering, machine learning, and uncertainty-aware flood-event detection.
 

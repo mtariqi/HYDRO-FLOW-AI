@@ -72,586 +72,240 @@ Observed record: 2012–2019, daily. The current workflow combines observed USGS
 
 End-to-end research pipeline
 
-flowchart LR
-    classDef source fill:#eaf4ff,stroke:#3b82f6,color:#0f172a,stroke-width:1px;
-    classDef reconstruct fill:#ecfdf5,stroke:#10b981,color:#0f172a,stroke-width:1px;
-    classDef feature fill:#fff7ed,stroke:#f59e0b,color:#0f172a,stroke-width:1px;
-    classDef split fill:#f5f3ff,stroke:#8b5cf6,color:#0f172a,stroke-width:1px;
-    classDef model fill:#fff1f2,stroke:#f43f5e,color:#0f172a,stroke-width:1px;
-    classDef eval fill:#f0fdfa,stroke:#14b8a6,color:#0f172a,stroke-width:1px;
-    classDef future fill:#eef2ff,stroke:#6366f1,color:#0f172a,stroke-width:1px;
+# HYDRO-FLOW-AI
 
-    subgraph A["1 · Data sources"]
-        A1["USGS observed<br/>streamflow"]:::source
-        A2["Climate forcing<br/>temperature + precipitation"]:::source
-        A3["NWM flow"]:::source
-        A4["Basin / site<br/>attributes"]:::source
+**Extreme-aware AI framework for streamflow prediction and NWM bias correction**, built on hydrometeorological data, temporal feature engineering, machine learning, and uncertainty-aware flood-event detection.
+
+## Motivation
+
+National Water Model (NWM) forecasts are useful but systematically biased at individual gauges, and that bias is often worst exactly when it matters most — during high-flow and flood events. This project treats bias correction as more than a generic regression problem: the goal is a model that is explicitly evaluated on its ability to represent extremes, not just to minimize average error across mostly-normal conditions.
+
+## Study sites
+
+Two USGS gauges, matched to NWM grid cells by coordinates:
+
+| NWIS Site ID | Latitude | Longitude |
+|---|---:|---:|
+| 10133800 | 40.75966979 | -111.5640912 |
+| 10133600 | 40.68803889 | -111.5337194 |
+
+Observed record: 2012–2019 (daily), climate forcing (temperature, precipitation) and observed USGS streamflow, joined against NWM output.
+
+## Pipeline
+
+```mermaid
+flowchart TD
+    subgraph UP["Upstream data — external NWM-ML repo, not tracked here"]
+        A1["NWM_ML_Training_DF.csv"]
+        A2["Climate.csv"]
+        A3["flow.pkl"]
     end
 
-    subgraph B["2 · Dataset reconstruction"]
-        B1["Recover NWIS site ID<br/>from retained coordinates"]:::reconstruct
-        B2["Rebuild dated source table<br/>Climate + USGS flow"]:::reconstruct
-        B3["Candidate filter<br/>site + day-of-year"]:::reconstruct
-        B4["Tolerance match<br/>T + P + Qobs"]:::reconstruct
-        B5["1:1 validation<br/>5,740 unique rows"]:::reconstruct
-    end
-
-    subgraph C["3 · Temporal feature engineering"]
-        C1["NWM lags<br/>Qt, Qt-1, Qt-3, Qt-7"]:::feature
-        C2["Precipitation<br/>Pt, P3d, P7d, P14d"]:::feature
-        C3["Temperature lags<br/>Tt, Tt-1, Tt-3, Tt-7"]:::feature
-        C4["Seasonality<br/>sin/cos(DOY)"]:::feature
-        C5["Static basin / site<br/>characteristics"]:::feature
-    end
-
-    subgraph D["4 · Leakage-safe temporal split"]
-        D1["2012–2017<br/>TRAIN"]:::split
-        D2["2018<br/>VALIDATION"]:::split
-        D3["2019<br/>TEST · untouched"]:::split
-    end
-
-    subgraph E["5 · Modeling"]
-        E1["Raw NWM<br/>reference baseline"]:::model
-        E2["XGBoost<br/>residual correction"]:::model
-        E3["residual = Qobs − QNWM"]:::model
-        E4["Qcorrected = QNWM + residual_hat"]:::model
-    end
-
-    subgraph F["6 · Extreme-aware evaluation"]
-        F1["Standard<br/>RMSE · MAE · Bias"]:::eval
-        F2["Hydrology<br/>NSE · KGE"]:::eval
-        F3["Extreme tails<br/>Q95 / Q99 RMSE"]:::eval
-        F4["Event skill<br/>POD · FAR · CSI"]:::eval
-        F5["Peak magnitude<br/>+ timing error"]:::eval
-    end
-
-    subgraph G["7 · Uncertainty + advanced AI"]
-        G1["Quantile regression<br/>prediction intervals"]:::future
-        G2["Conformal calibration"]:::future
-        G3["LSTM / Transformer"]:::future
-        G4["River-network GNN"]:::future
-        G5["Probabilistic<br/>extreme-event head"]:::future
+    subgraph S1["Stage 1 · Dataset Reconstruction — done"]
+        B1["assign_site_from_coordinates()<br/>Lat/Long to NWIS_site_id"]
+        B2["build_source_table()<br/>Climate + observed flow joined on datetime, site"]
+        B3["reconstruct_dates()<br/>match on site, day-of-year, tolerance on T/P/Q"]
+        B4{"one-to-one?<br/>5740 matched, 0 zero-match, 0 multi-match"}
+        B5[["nwm_ml_dated.csv"]]
+        B6[["reconstruction_diagnostics.csv"]]
+        B7(["ReconstructionError: refuses to write output"])
     end
 
     A1 --> B1
+    B1 --> B3
     A2 --> B2
-    A3 --> C1
-    A4 --> C5
+    A3 --> B2
+    B2 --> B3
+    B3 --> B4
+    B4 -->|pass| B5
+    B4 -->|fail| B6
+    B4 -->|fail| B7
 
-    B1 --> B2 --> B3 --> B4 --> B5
+    subgraph S2["Stage 2 · Temporal Feature Engineering — next"]
+        C1["NWM discharge lags: Qt, Qt-1, Qt-3, Qt-7"]
+        C2["Precipitation sums: Pt, P3d, P7d, P14d"]
+        C3["Temperature lags: Tt, Tt-1, Tt-3, Tt-7"]
+        C4["Cyclic seasonality: sin/cos(DOY)"]
+        C5["Basin / site characteristics"]
+        C6[["feature_matrix.csv"]]
+    end
+
     B5 --> C1
     B5 --> C2
     B5 --> C3
     B5 --> C4
     B5 --> C5
+    C1 --> C6
+    C2 --> C6
+    C3 --> C6
+    C4 --> C6
+    C5 --> C6
 
-    C1 --> D1
-    C2 --> D1
-    C3 --> D1
-    C4 --> D1
-    C5 --> D1
+    subgraph S3["Stage 3 · Leakage-safe split"]
+        D1["2012-2017: TRAIN"]
+        D2["2018: VALIDATION"]
+        D3["2019: TEST, untouched"]
+    end
 
-    D1 --> E1
+    C6 --> D1
+    C6 --> D2
+    C6 --> D3
+
+    subgraph S4["Stage 4 · Modeling"]
+        E1["NWM baseline, no correction"]
+        E2["XGBoost residual model<br/>residual = Q_obs - Q_NWM"]
+        E3["corrected = Q_NWM + predicted_residual"]
+    end
+
     D1 --> E2
     D2 --> E2
-    E1 --> F1
-    E2 --> E3 --> E4 --> F1
+    E2 --> E3
+    E1 -. compared against .-> E3
 
-    F1 --> F2 --> F3 --> F4 --> F5
-    D3 --> F1
+    subgraph S5["Stage 5 · Extreme-aware evaluation"]
+        F1["RMSE / MAE / Bias"]
+        F2["NSE / KGE"]
+        F3["Q95 / Q99 error"]
+        F4["Peak-magnitude error"]
+        F5["Extreme-event detection"]
+    end
 
-    F5 --> G1 --> G2
+    D3 --> E3
+    E3 --> F1
+    E3 --> F2
+    E3 --> F3
+    E3 --> F4
+    E3 --> F5
+
+    subgraph S6["Stage 6 · Advanced & uncertainty — planned"]
+        G1["Quantile regression,<br/>calibrated prediction intervals"]
+        G2["Transformer / LSTM"]
+        G3["River-network GNN"]
+        G4["Probabilistic extreme-event head"]
+    end
+
+    F1 --> G1
+    F2 --> G1
+    F3 --> G1
+    F4 --> G1
+    F5 --> G1
+    G1 --> G2
     G2 --> G3
-    G2 --> G4
-    G3 --> G5
-    G4 --> G5
+    G3 --> G4
 
-Pipeline logic
+    classDef done fill:#1b4332,stroke:#2d6a4f,color:#ffffff
+    classDef next fill:#023047,stroke:#219ebc,color:#ffffff
+    classDef planned fill:#3c3744,stroke:#7a7788,color:#ffffff
+    classDef fail fill:#7f1d1d,stroke:#b91c1c,color:#ffffff
 
-Stage
+    class B1,B2,B3,B4,B5,B6 done
+    class B7 fail
+    class C1,C2,C3,C4,C5,C6,D1,D2,D3,E1,E2,E3,F1,F2,F3,F4,F5 next
+    class G1,G2,G3,G4 planned
+```
 
-Purpose
+**Legend:** green = complete and validated · blue = next / actively planned near-term · gray = longer-horizon roadmap · red = the validation-failure path (`ReconstructionError`, output withheld).
 
-Inputs
+### 1. Dataset reconstruction (complete)
 
-Output
+`src/hydro_flow_ai/reconstruct_dataset.py` recovers the `datetime` and `NWIS_site_id` fields that were dropped from the original ML training export (`NWM_ML_Training_DF.csv`), by:
 
-1. Data sources
+1. Mapping each row back to its gauge using retained Lat/Long coordinates.
+2. Rebuilding a dated source-of-truth table from `Climate.csv` + observed USGS flow (`flow.pkl`).
+3. Restricting candidate dates to the same (site, day-of-year), then matching on temperature, precipitation, and flow using an absolute floating-point tolerance (`--match-atol`, default `1e-5`) rather than exact equality, to absorb floating-point noise introduced between the original export and the current source files.
+4. Requiring every training row to match **exactly one** candidate date — the script refuses to write output otherwise, and writes a diagnostics CSV explaining any row that failed to match uniquely.
 
-Assemble observed and modeled hydrology
+Status: verified end-to-end on both gauges — all 5,740 training rows (2,827 + 2,913) reconstruct to a unique date with zero ambiguous or missing matches.
 
-USGS flow, climate, NWM, static basin data
-
-Raw research inputs
-
-2. Reconstruction
-
-Restore temporal/site identity lost in the original export
-
-Lat/Long, DOY, climate, observed flow
-
-Dated, site-aware dataset
-
-3. Feature engineering
-
-Represent antecedent hydrologic state without future leakage
-
-NWM, precipitation, temperature, seasonality
-
-Model-ready temporal features
-
-4. Temporal split
-
-Prevent random-split leakage
-
-Dated features
-
-Train / validation / untouched test
-
-5. Modeling
-
-Learn systematic NWM residual error
-
-NWM + features
-
-Bias-corrected streamflow
-
-6. Evaluation
-
-Measure both average and tail performance
-
-Observed + predicted flow
-
-Standard + extreme-event metrics
-
-7. Advanced AI
-
-Add uncertainty, sequence learning, and network structure
-
-Calibrated features + river graph
-
-Probabilistic extreme-flow forecasts
-
-Stage 1 — Dataset reconstruction ✅
-
-src/hydro_flow_ai/reconstruct_dataset.py restores the datetime and NWIS_site_id fields that were dropped from the original ML training export.
-
-The reconstruction:
-
-Maps each row to an NWIS gauge from retained coordinates.
-
-Rebuilds a dated source-of-truth table from Climate.csv and observed USGS flow in flow.pkl.
-
-Restricts candidate dates to matching (site, day-of-year).
-
-Matches temperature, precipitation, and observed flow using an absolute numeric tolerance (--match-atol, default 1e-5).
-
-Requires exactly one recovered date per original training row.
-
-Rejects ambiguous or zero-match rows and emits diagnostics rather than silently assigning a date.
-
-Verifies the final (NWIS_site_id, datetime) mapping is one-to-one.
-
-Validated result:
-
-Original training rows : 5740
-Unique matched rows    : 5740
-Problem row IDs        : 0
-Missing dates          : 0
-Duplicate site/date    : 0
-
-Run:
-
+```fish
 python src/hydro_flow_ai/reconstruct_dataset.py
+```
 
-Stage 2 — Temporal feature engineering 🚧
+### 2. Temporal feature engineering (next)
 
-The initial feature set is deliberately restricted to information available at prediction time.
+Planned split — chosen specifically to avoid temporal leakage rather than a random split, since random splitting on time series data inflates apparent performance on extreme events:
 
-NWM discharge
+- **2012–2017** → training
+- **2018** → validation
+- **2019** → held out, untouched test set
 
-[
-Q_t,\quad Q_{t-1},\quad Q_{t-3},\quad Q_{t-7}
-]
+Planned initial feature set, restricted to variables actually available at prediction time (no future leakage):
 
-Antecedent precipitation
+- NWM discharge: `Q_t`, `Q_{t-1}`, `Q_{t-3}`, `Q_{t-7}`
+- Precipitation: `P_t`, and rolling sums `P_3d`, `P_7d`, `P_14d`
+- Temperature: `T_t`, `T_{t-1}`, `T_{t-3}`, `T_{t-7}`
+- Basin/site characteristics
+- Cyclic seasonality encoding (e.g. day-of-year as sin/cos)
 
-[
-P_t,\quad P_{3d},\quad P_{7d},\quad P_{14d}
-]
+### 3. Modeling and evaluation (planned)
 
-where the rolling precipitation totals summarize antecedent watershed forcing.
+Baseline model: XGBoost residual correction, where the model learns
 
-Temperature
+```text
+residual = observed_streamflow - NWM_streamflow
+```
 
-[
-T_t,\quad T_{t-1},\quad T_{t-3},\quad T_{t-7}
-]
+and the corrected forecast is
 
-Seasonality
+```text
+corrected_streamflow = NWM_streamflow + predicted_residual
+```
 
-[
-\sin(2\pi,DOY/365.25),\qquad
-\cos(2\pi,DOY/365.25)
-]
+Evaluation deliberately goes beyond average-case accuracy:
 
-Static context
+- Standard: RMSE, MAE, Bias, NSE, KGE
+- Extreme-focused: Q95/Q99 RMSE, peak-magnitude error, extreme-event detection performance
 
-drainage area
+## Project structure
 
-mean basin elevation
-
-forest / developed / impervious cover
-
-herbaceous cover
-
-steep-slope fraction
-
-mean annual precipitation
-
-site identity
-
-Leakage-safe experiment design
-
-flowchart LR
-    A["2012–2017<br/><b>TRAIN</b>"]
-    B["2018<br/><b>VALIDATION</b>"]
-    C["2019<br/><b>HELD-OUT TEST</b>"]
-
-    A -->|"fit model + learn preprocessing"| B
-    B -->|"select hyperparameters"| C
-    C -->|"final evaluation only"| D["Report final<br/>standard + extreme metrics"]
-
-    style A fill:#dcfce7,stroke:#16a34a
-    style B fill:#fef3c7,stroke:#d97706
-    style C fill:#fee2e2,stroke:#dc2626
-    style D fill:#dbeafe,stroke:#2563eb
-
-A random split is intentionally avoided because adjacent time-series observations are autocorrelated and random splitting can make extreme-event performance appear unrealistically strong.
-
-Stage 3 — Residual correction baseline
-
-The initial ML baseline is XGBoost residual correction.
-
-[
-e_t = Q^{obs}_t - Q^{NWM}_t
-]
-
-The model learns:
-
-[
-\hat e_t = f_\theta(X_t)
-]
-
-and produces:
-
-Q^{NWM}_t + \hat e_t
-]
-
-This preserves the NWM prediction as the physical/model baseline while asking ML to learn systematic error conditioned on hydrometeorological state.
-
-Extreme-aware evaluation
-
-Average metrics alone can hide failures at flood peaks. HYDRO-FLOW-AI therefore separates ordinary performance from tail performance.
-
-Standard hydrologic metrics
-
-Metric
-
-Role
-
-RMSE
-
-overall squared-error magnitude
-
-MAE
-
-robust average absolute error
-
-Bias
-
-systematic over/underprediction
-
-NSE
-
-hydrologic efficiency
-
-KGE
-
-correlation, variability, and bias balance
-
-Extreme-flow metrics
-
-Metric
-
-Role
-
-Q95 RMSE
-
-performance above the 95th percentile
-
-Q99 RMSE
-
-performance above the 99th percentile
-
-Peak magnitude error
-
-under/overprediction of peak discharge
-
-Peak timing error
-
-temporal displacement of peaks
-
-POD
-
-probability of detecting an extreme event
-
-FAR
-
-false-alarm ratio
-
-CSI
-
-critical success index
-
-Precision / Recall
-
-class imbalance-aware event detection
-
-Planned uncertainty quantification
-
-The next uncertainty layer will investigate:
-
-quantile-regression objectives
-
-calibrated prediction intervals
-
-conformal prediction
-
-interval coverage and sharpness
-
-reliability / calibration diagnostics
-
-probabilistic threshold exceedance
-
-The eventual probabilistic task is:
-
-[
-P(Q_{t+h} > Q_{\text{critical}})
-]
-
-rather than returning only a single deterministic discharge estimate.
-
-Advanced model roadmap
-
-flowchart TD
-    A["Extreme-aware XGBoost<br/>residual baseline"]
-    B["Temporal sequence model<br/>LSTM / GRU"]
-    C["Transformer / N-HiTS<br/>multi-frequency temporal encoder"]
-    D["Directed river-network GNN<br/>upstream → downstream"]
-    E["Hybrid spatiotemporal model"]
-    F["Probabilistic extreme-event head"]
-    G["Uncertainty calibration"]
-    H["Ablation + model comparison"]
-
-    A --> B
-    A --> C
-    B --> E
-    C --> E
-    D --> E
-    E --> F --> G --> H
-
-    style A fill:#fff7ed,stroke:#ea580c
-    style B fill:#eff6ff,stroke:#2563eb
-    style C fill:#eff6ff,stroke:#2563eb
-    style D fill:#f5f3ff,stroke:#7c3aed
-    style E fill:#ecfdf5,stroke:#059669
-    style F fill:#fff1f2,stroke:#e11d48
-    style G fill:#f0fdfa,stroke:#0f766e
-    style H fill:#f8fafc,stroke:#475569
-
-Repository structure
-
+```text
 HYDRO-FLOW-AI/
-├── configs/
 ├── data/
-│   ├── raw/                  # gitignored source inputs
-│   ├── interim/              # gitignored intermediate outputs
-│   ├── processed/            # gitignored cleaned data
-│   └── derived/              # gitignored reconstructed/features
-├── docs/
-│   └── assets/
-│       └── HYDRO-FLOW-AI-banner.png
-├── models/                   # gitignored trained artifacts
+│   ├── raw/
+│   ├── interim/
+│   ├── processed/
+│   └── derived/
+├── src/hydro_flow_ai/
+│   ├── __init__.py
+│   └── reconstruct_dataset.py
+├── tests/
+├── configs/
 ├── notebooks/
+├── models/
 ├── results/
 │   ├── figures/
-│   ├── metrics/
-│   └── tables/
-├── src/
-│   └── hydro_flow_ai/
-│       ├── __init__.py
-│       └── reconstruct_dataset.py
-├── tests/
-├── .gitignore
-├── pyproject.toml
+│   ├── tables/
+│   └── metrics/
+├── docs/
+│   └── assets/
+│       └── banner.svg
 ├── README.md
-└── requirements.txt
+├── pyproject.toml
+├── requirements.txt
+└── .gitignore
+```
 
-Quick start
+## Setup
 
-1. Clone
-
-git clone https://github.com/mtariqi/HYDRO-FLOW-AI.git
-cd HYDRO-FLOW-AI
-
-2. Create an environment
-
-For fish shell:
-
-python3 -m venv .venv
+```fish
+python -m venv .venv
 source .venv/bin/activate.fish
-
-For Bash:
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-3. Install dependencies
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-4. Reconstruct the dated dataset
-
-The reconstruction script requires the corresponding source data files locally.
-
-python src/hydro_flow_ai/reconstruct_dataset.py
-
-Expected validation:
-
-Original training rows : 5740
-Unique matched rows    : 5740
-Problem row IDs        : 0
-
-Reproducibility principles
-
-No random temporal split for the primary experiment.
-
-No future information in predictor construction.
-
-Untouched final test period for final reporting.
-
-Extreme-flow metrics reported separately from overall metrics.
-
-Ambiguous reconstruction fails loudly instead of silently guessing.
-
-Source and derived data are not committed when they are large, restricted, or reproducibly generated.
-
-NWM baseline remains visible in every model comparison.
-
-Ablation studies will quantify the value of each architectural addition.
-
-Upstream reference
-
-This repository extends ideas and data-processing workflows from the Alabama Water Institute NWM-ML project.
-
-HYDRO-FLOW-AI is maintained as an independent research repository focused on:
-
-extreme-flow bias correction
-
-leakage-safe temporal modeling
-
-uncertainty quantification
-
-probabilistic event detection
-
-future spatiotemporal river-network learning
-
-The upstream project should be cited and acknowledged where its code, workflow concepts, or data-processing approach materially contribute to derived work.
-
-Project status
-
-Component
-
-Status
-
-Dataset reconstruction
-
-✅ Complete — 5,740 / 5,740 uniquely dated
-
-Independent reconstruction validation
-
-✅ Complete
-
-Temporal feature engineering
-
-🚧 Next
-
-Leakage-safe train/validation/test split
-
-⏳ Planned
-
-XGBoost residual-correction baseline
-
-⏳ Planned
-
-Extreme-event evaluation suite
-
-⏳ Planned
-
-Uncertainty quantification
-
-⏳ Planned
-
-LSTM / Transformer temporal model
-
-⏳ Planned
-
-River-network GNN
-
-⏳ Planned
-
-Probabilistic extreme-event head
-
-⏳ Planned
-
-Model ablation study
-
-⏳ Planned
-
-Technology stack
-
-<p>
-  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/pandas-data%20engineering-150458?logo=pandas&logoColor=white" alt="pandas">
-  <img src="https://img.shields.io/badge/NumPy-numerical%20computing-013243?logo=numpy&logoColor=white" alt="NumPy">
-  <img src="https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn">
-  <img src="https://img.shields.io/badge/XGBoost-baseline-EB5E28" alt="XGBoost">
-  <img src="https://img.shields.io/badge/hydroeval-hydrologic%20metrics-0077B6" alt="hydroeval">
-  <img src="https://img.shields.io/badge/Matplotlib-visualization-11557C" alt="Matplotlib">
-  <img src="https://img.shields.io/badge/Ruff-linting-D7FF64?logo=ruff&logoColor=black" alt="Ruff">
-</p>
-
-Citation
-
-A formal project citation will be added with the first tagged research release. Until then, please cite the repository URL and the upstream NWM-ML work where appropriate.
-
-Contributing
-
-Issues, reproducibility checks, feature requests, hydrology-domain feedback, and model-comparison contributions are welcome.
-
-For substantial changes, open an issue first describing:
-
-the hydrologic or ML problem,
-
-the proposed change,
-
-expected validation,
-
-whether the change affects leakage, uncertainty, or extreme-event evaluation.
-
-<p align="center">
-  <strong>HYDRO-FLOW-AI</strong><br/>
-  Better bias correction is useful. Better extreme-event prediction is the goal.
-</p>
+pip install numpy pandas
+```
+
+## Upstream reference
+
+This project extends ideas and data-processing workflows from the Alabama Water Institute NWM-ML project. HYDRO-FLOW-AI is an independent research repository focused on extreme-flow bias correction, leakage-safe temporal modeling, uncertainty quantification, and future spatiotemporal graph learning.
+
+## Status
+
+- [x] Dataset reconstruction — datetime/site recovery, validated one-to-one (5,740/5,740 rows)
+- [ ] Temporal feature engineering
+- [ ] Leakage-safe train/validation/test split
+- [ ] Baseline XGBoost residual-correction model
+- [ ] Extreme-event evaluation suite (Q95/Q99, peak error, detection metrics)
+- [ ] Uncertainty quantification using quantile regression and calibrated prediction intervals
+- [ ] Transformer/LSTM temporal model
+- [ ] River-network graph neural network
+- [ ] Probabilistic extreme-event detection head
+- [ ] Model comparison and ablation study

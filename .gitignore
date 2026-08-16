@@ -1,0 +1,88 @@
+# --- Hydrology / project data --------------------------------------------
+# Raw, interim, processed, and derived data are almost always too large
+# and/or too sensitive/licensed to commit. Track structure, not content.
+data/raw/*
+data/interim/*
+data/processed/*
+data/derived/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!data/derived/.gitkeep
+
+# Legacy/original layout, if still present from the upstream project
+Data/Processed/*
+!Data/Processed/.gitkeep
+
+*.pkl
+*.parquet
+*.nc
+*.h5
+*.hdf5
+
+# Geospatial / large scientific data
+*.tif
+*.tiff
+*.grib
+*.grib2
+*.zarr
+*.gpkg
+*.shp
+*.shx
+*.dbf
+
+# --- Models and results ----------------------------------------------------
+models/*
+!models/.gitkeep
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.xgb
+
+results/figures/*
+results/tables/*
+results/metrics/*
+!results/figures/.gitkeep
+!results/tables/.gitkeep
+!results/metrics/.gitkeep
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# --- Virtual environments ----------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# --- Jupyter -----------------------------------------------------------------
+.ipynb_checkpoints/
+notebooks/**/.ipynb_checkpoints/
+
+# --- Environment / secrets ----------------------------------------------------
+.env
+.env.*
+*.key
+
+# --- Editors / OS --------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Testing / coverage --------------------------------------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Logs -----------------------------------------------------------------------
+*.log
+logs/

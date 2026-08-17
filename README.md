@@ -34,7 +34,7 @@
   <img src="https://img.shields.io/badge/data-USGS%20%2B%20Climate%20%2B%20NWM-0A9396" alt="Data sources">
 </p>
 
-Why HYDRO-FLOW-AI?
+# Why HYDRO-FLOW-AI?
 
 National Water Model (NWM) forecasts are useful but can be systematically biased at individual gauges, and that bias can be especially consequential during high-flow and flood events. HYDRO-FLOW-AI treats bias correction as more than a generic regression task: the framework is explicitly designed to evaluate and improve performance in the tails of the streamflow distribution, not only average error under mostly normal conditions.
 

@@ -72,7 +72,9 @@ Observed record: 2012–2019, daily. The current workflow combines observed USGS
 
 End-to-end research pipeline
 
-<img width="1039" height="691" alt="image" src="https://github.com/user-attachments/assets/aabd8911-069e-4940-997b-a1f77c8ea30e" />
+<img width="864" height="571" alt="image" src="https://github.com/user-attachments/assets/451a2c61-0ff2-41cb-bc71-cc98da9fb255" />
+
+
 
 
 # PIPELINE LOGIC

@@ -317,7 +317,7 @@ python src/hydro_flow_ai/reconstruct_dataset.py
 
 ## Collaborators
 Mohammad Shahabul Alam, PhD — Assistant Professor (Tenure-track), University of West Florida — https://www.linkedin.com/in/md-shahabul-alam/
-
+https://github.com/shahab122
 ## Upstream reference
 
 This project extends ideas and data-processing workflows from the Alabama Water Institute NWM-ML project. HYDRO-FLOW-AI is an independent research repository focused on extreme-flow bias correction, leakage-safe temporal modeling, uncertainty quantification, and future spatiotemporal graph learning.

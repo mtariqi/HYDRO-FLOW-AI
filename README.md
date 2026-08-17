@@ -287,12 +287,28 @@ HYDRO-FLOW-AI/
 ```
 
 ## Setup
-
-```fish
-python -m venv .venv
-source .venv/bin/activate.fish
-pip install numpy pandas
+### 4. Quick Start & Setup
+1. Environment Setup
+Clone the repository and set up a virtual environment:
 ```
+git clone [https://github.com/your-username/HYDRO-FLOW-AI.git](https://github.com/your-username/HYDRO-FLOW-AI.git)
+cd HYDRO-FLOW-AI
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate environment (bash/zsh)
+source .venv/bin/activate
+
+# Activate environment (fish)
+# source .venv/bin/activate.fish
+
+# Install dependencies
+pip install -r requirements.txt
+```fish
+2. Run Reconstruction Pipeline
+Execute Stage 1 data reconstruction:
+python src/hydro_flow_ai/reconstruct_dataset.py
 
 ## Upstream reference
 

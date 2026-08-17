@@ -68,7 +68,7 @@ McLeod Creek near Park City, UT
 
 -111.5337194
 
-Observed record: 2012–2019, daily. The current workflow combines observed USGS streamflow, temperature, precipitation, basin/site characteristics, and NWM flow. The dated reconstruction has been validated at 5,740 / 5,740 rows, with zero missing dates and zero duplicate (site, datetime) pairs.
+Observed record: 1979–2023, daily. The current workflow combines observed USGS streamflow, temperature, precipitation, basin/site characteristics, and NWM flow. The dated reconstruction has been validated at 5,740 / 5,740 rows, with zero missing dates and zero duplicate (site, datetime) pairs.
 
 End-to-end research pipeline
 

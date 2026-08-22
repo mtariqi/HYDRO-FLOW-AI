@@ -552,48 +552,56 @@ flowchart TD
 # Repository structure
 
 ```text
-HYDRO-FLOW-AI/
-├── configs/
-│
-├── data/
-│   ├── raw/                  # local / external source data
-│   ├── interim/              # intermediate transformations
-│   ├── processed/            # cleaned datasets
-│   └── derived/              # reconstructed + feature-engineered data
-│
-├── docs/
-│   └── assets/
-│       └── HYDRO-FLOW-AI-banner.png
-│
-├── models/
-│
-├── notebooks/
-│
-├── results/
-│   ├── figures/
-│   ├── metrics/
-│   └── tables/
-│
-├── src/
-│   └── hydro_flow_ai/
-│       ├── __init__.py
-│       ├── reconstruct_dataset.py
-│       ├── features.py
-│       ├── split.py
-│       ├── baseline.py
-│       ├── train.py
-│       ├── evaluate.py
-│       ├── extremes.py
-│       └── uncertainty.py
-│
-├── tests/
-│
-├── .gitignore
-├── pyproject.toml
-├── README.md
-└── requirements.txt
+Google Drive — collaborative/source data
+        │
+        ├── NWM data
+        ├── USGS streamflow
+        ├── climate data
+        ├── site/basin data
+        └── collaborator-provided datasets
+                │
+                ▼
+Local HYDRO-FLOW-AI/data/
+        │
+        ├── raw/          ← downloaded source data
+        ├── interim/      ← intermediate transformations
+        ├── processed/    ← cleaned datasets
+        └── derived/      ← ML-ready datasets
+                │
+                ▼
+GitHub — code + documentation only
 ```
+# Data Sources
 
+HYDRO-FLOW-AI integrates hydrologic, meteorological, and watershed
+information from multiple sources.
+
+## Data provenance
+
+| Source | Data | Role |
+|---|---|---|
+| USGS NWIS | Observed streamflow | Ground-truth discharge |
+| National Water Model (NWM) | Simulated streamflow | Baseline/model input |
+| Climate forcing | Temperature and precipitation | Meteorological predictors |
+| Basin/site attributes | Watershed characteristics | Static predictors |
+| Collaborative research data | Project-specific hydrologic datasets | Model development and validation |
+
+## Collaborative data
+
+Additional project datasets are maintained in a shared Google Drive
+workspace used by the research collaborators.
+
+These source datasets are intentionally excluded from the public GitHub
+repository. The repository contains the processing, reconstruction,
+feature-engineering, modeling, and evaluation code required for the
+HYDRO-FLOW-AI workflow.
+
+## Current study sites
+
+- USGS NWIS 10133800
+- USGS NWIS 10133600
+
+Study period: 2012–2019.
 ---
 
 # Quick start

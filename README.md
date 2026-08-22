@@ -263,28 +263,34 @@ Evaluation deliberately goes beyond average-case accuracy:
 
 ## Project structure
 
-```text
+```
 HYDRO-FLOW-AI/
+├── configs/
 ├── data/
-│   ├── raw/
-│   ├── interim/
-│   ├── processed/
-│   └── derived/
+│   ├── raw/          # local / Drive-sourced, gitignored
+│   ├── interim/      # gitignored
+│   ├── processed/    # gitignored
+│   └── derived/      # gitignored
+├── docs/
+│   └── assets/
+├── models/
+├── notebooks/
+├── results/
+│   ├── figures/
+│   ├── metrics/
+│   └── tables/
 ├── src/
 │   └── hydro_flow_ai/
 │       ├── __init__.py
-│       └── reconstruct_dataset.py
+│       ├── reconstruct_dataset.py
+│       ├── features.py
+│       ├── split.py
+│       ├── baseline.py
+│       ├── train.py
+│       ├── evaluate.py
+│       ├── extremes.py
+│       └── uncertainty.py
 ├── tests/
-├── configs/
-├── notebooks/
-├── models/
-├── results/
-│   ├── figures/
-│   ├── tables/
-│   └── metrics/
-├── docs/
-│   └── assets/
-│       └── HYDRO-FLOW-AI-banner.png
 ├── README.md
 ├── pyproject.toml
 ├── requirements.txt

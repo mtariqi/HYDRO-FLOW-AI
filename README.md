@@ -58,6 +58,7 @@ The central research question is:
 > **Can extreme-aware, temporally informed AI improve NWM streamflow predictions without sacrificing reproducibility, hydrologic interpretability, or out-of-sample validity?**
 
 ---
+<img width="1209" height="965" alt="image" src="https://github.com/user-attachments/assets/f9cc14f1-50a6-4d68-99c5-8be7456d8f0b" />
 
 ## Study sites
 

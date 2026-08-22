@@ -550,7 +550,112 @@ flowchart TD
 ---
 
 # Repository structure
-
+```text
+HYDRO-FLOW-AI/
+├── README.md
+├── LICENSE
+├── pyproject.toml
+├── requirements.txt
+├── .gitignore
+├── .pre-commit-config.yaml
+│
+├── configs/
+│   ├── data.yaml
+│   ├── features.yaml
+│   ├── baseline_xgb.yaml
+│   ├── extremes.yaml
+│   └── uncertainty.yaml
+│
+├── data/
+│   ├── raw/
+│   │   └── .gitkeep
+│   ├── interim/
+│   │   └── .gitkeep
+│   ├── processed/
+│   │   └── .gitkeep
+│   └── derived/
+│       └── .gitkeep
+│
+├── docs/
+│   ├── methodology.md
+│   ├── data_dictionary.md
+│   ├── reproducibility.md
+│   └── assets/
+│       └── HYDRO-FLOW-AI-banner.png
+│
+├── notebooks/
+│   ├── 01_data_audit.ipynb
+│   ├── 02_extreme_flow_analysis.ipynb
+│   ├── 03_feature_diagnostics.ipynb
+│   └── 04_model_comparison.ipynb
+│
+├── models/
+│   └── .gitkeep
+│
+├── results/
+│   ├── figures/
+│   │   └── .gitkeep
+│   ├── metrics/
+│   │   └── .gitkeep
+│   └── tables/
+│       └── .gitkeep
+│
+├── src/
+│   └── hydro_flow_ai/
+│       ├── __init__.py
+│       │
+│       ├── data/
+│       │   ├── __init__.py
+│       │   ├── reconstruct_dataset.py
+│       │   ├── validate.py
+│       │   └── io.py
+│       │
+│       ├── features/
+│       │   ├── __init__.py
+│       │   ├── temporal.py
+│       │   ├── precipitation.py
+│       │   ├── seasonality.py
+│       │   └── build_features.py
+│       │
+│       ├── modeling/
+│       │   ├── __init__.py
+│       │   ├── baseline.py
+│       │   ├── xgboost_model.py
+│       │   ├── train.py
+│       │   └── predict.py
+│       │
+│       ├── evaluation/
+│       │   ├── __init__.py
+│       │   ├── metrics.py
+│       │   ├── extremes.py
+│       │   ├── peaks.py
+│       │   └── evaluate.py
+│       │
+│       ├── uncertainty/
+│       │   ├── __init__.py
+│       │   ├── quantiles.py
+│       │   └── conformal.py
+│       │
+│       ├── advanced/
+│       │   ├── __init__.py
+│       │   ├── lstm.py
+│       │   ├── transformer.py
+│       │   └── river_gnn.py
+│       │
+│       ├── split.py
+│       └── utils.py
+│
+├── tests/
+│   ├── test_reconstruction.py
+│   ├── test_features.py
+│   ├── test_split.py
+│   ├── test_metrics.py
+│   └── test_extremes.py
+│
+└── .github/
+    └── workflows/
+        └── ci.yml
+```
 ```text
 Google Drive — collaborative/source data
         │

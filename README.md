@@ -86,15 +86,32 @@ The current workflow combines:
 * mean annual precipitation;
 * seasonal timing information.
 
-The validated reconstruction contains:
+## Data cohorts
 
-```text
-Total rows              : 5,740
-NWIS 10133600            : 2,827
-NWIS 10133800            : 2,913
-Missing dates            : 0
-Duplicate site/date rows : 0
-Ambiguous date matches   : 0
+### Legacy reconstruction-validation cohort
+
+The original NWM-ML reconstruction experiment used two Utah gauges
+and 5,740 daily records. This cohort is retained to validate datetime
+and site-ID reconstruction reproducibly.
+
+### Current multi-station research cohort
+
+The primary HYDRO-FLOW-AI research dataset contains:
+
+- 296,161 daily station records
+- 30 USGS stations
+- Utah and Idaho
+- 1990-01-01 through 2020-09-30 overall
+- observed USGS discharge (`flow_cms`)
+- raw NWM discharge (`NWM_flow`)
+- precipitation and temperature
+- storage and snow-water equivalent
+- static basin and land-cover attributes
+
+Station-level QC is performed before pooled model development.
+The current scale-anomaly screen flags five stations for review;
+stations requiring adjudication are blocked from pooled modeling
+until explicitly resolved through the station registry.
 ```
 
 ---

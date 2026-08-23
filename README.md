@@ -112,48 +112,51 @@ scientifically adjudicated.
 
 
 # Research pipeline
-```mermaid
+```
 %%{init: {
   "theme": "base",
   "themeVariables": {
-    "fontSize": "24px",
+    "fontSize": "22px",
     "fontFamily": "Arial, Helvetica, sans-serif",
     "primaryTextColor": "#111827",
     "lineColor": "#475569"
   },
   "flowchart": {
     "htmlLabels": true,
-    "nodeSpacing": 70,
-    "rankSpacing": 80,
+    "nodeSpacing": 65,
+    "rankSpacing": 75,
     "curve": "basis"
   }
 }}%%
 
 flowchart TD
 
+    %% =========================================================
+    %% 1. INPUT DATA
+    %% =========================================================
     subgraph INPUTS["1 · Hydrologic and Environmental Inputs"]
         direction LR
-        A1["USGS observed<br/>streamflow"]
-        A2["Climate forcing<br/>temperature + precipitation"]
-        A3["NWM streamflow"]
-        A4["Basin and site<br/>attributes"]
+
+        A1["USGS observed streamflow<br/><b>flow_cms</b>"]
+        A2["NWM streamflow<br/><b>NWM_flow</b>"]
+        A3["Climate forcing<br/>precipitation + temperature"]
+        A4["Hydrologic state<br/>storage + SWE"]
+        A5["Basin / site attributes<br/>area, elevation, slope,<br/>land cover, coordinates"]
     end
 
-    subgraph RECON["2 · Dataset Reconstruction · COMPLETE"]
+
+    %% =========================================================
+    %% 2. RECONSTRUCTION VALIDATION
+    %% =========================================================
+    subgraph RECON["2 · Reconstruction-Validation Cohort · COMPLETE"]
         direction TB
 
         B1["Map retained coordinates<br/>to NWIS site ID"]
-
-        B2["Build dated source table<br/>Climate + USGS flow"]
-
+        B2["Build dated reference table<br/>Climate + USGS flow"]
         B3["Restrict candidate dates<br/>site + day-of-year"]
-
-        B4["Tolerance-based match<br/>temperature + precipitation + flow"]
-
+        B4["Tolerance-based matching<br/>temperature + precipitation + flow"]
         B5{"Exactly one date<br/>per training row?"}
-
-        B6["Validated dated dataset<br/><b>5,740 / 5,740 rows</b>"]
-
+        B6["Validated reconstruction<br/><b>5,740 / 5,740 rows</b><br/>2 Utah gauges"]
         B7["Diagnostics + ReconstructionError<br/>output withheld"]
 
         B1 --> B3
@@ -164,135 +167,234 @@ flowchart TD
         B5 -->|"FAIL"| B7
     end
 
-    subgraph FEATURES["3 · Temporal Feature Engineering · NEXT"]
-        direction LR
 
-        C1["NWM flow<br/>Qt, Qt−1, Qt−3, Qt−7"]
+    %% =========================================================
+    %% 3. MULTI-STATION BASELINE + QC
+    %% =========================================================
+    subgraph QC["3 · Multi-Station Baseline + QC · COMPLETE"]
+        direction TB
 
-        C2["Precipitation<br/>Pt, P3d, P7d, P14d"]
+        Q1["Current research cohort<br/><b>296,161 station-days</b><br/><b>30 USGS stations</b><br/>Utah + Idaho"]
+        Q2["Raw NWM baseline evaluation<br/>RMSE · MAE · Bias"]
+        Q3["Station-specific high-flow diagnostics<br/>Q95 / Q99 RMSE"]
+        Q4["Automated scale-anomaly screening<br/>range overlap + central overlap<br/>mean / median scale ratios"]
+        Q5["Targeted forensic audit<br/>for suspicious stations"]
+        Q6["Scientific adjudication registry<br/>include · review · exclude"]
+        Q7["Explicit model-eligible cohort<br/>flagged + unresolved → blocked"]
 
-        C3["Temperature<br/>Tt, Tt−1, Tt−3, Tt−7"]
-
-        C4["Cyclic seasonality<br/>sin(DOY), cos(DOY)"]
-
-        C5["Static watershed<br/>context"]
-
-        C6["Model-ready<br/>feature matrix"]
+        Q1 --> Q2
+        Q2 --> Q3
+        Q3 --> Q4
+        Q4 --> Q5
+        Q4 --> Q6
+        Q5 --> Q6
+        Q6 --> Q7
     end
 
-    subgraph SPLIT["4 · Leakage-Safe Temporal Split"]
+
+    %% =========================================================
+    %% 4. FEATURE PROVENANCE
+    %% =========================================================
+    subgraph PROV["4 · Feature Provenance Audit · NEXT"]
         direction LR
 
-        D1["2012–2017<br/><b>TRAIN</b>"]
-        D2["2018<br/><b>VALIDATION</b>"]
-        D3["2019<br/><b>HELD-OUT TEST</b>"]
+        P1["Audit ambiguous variables<br/>min · max · mean · median · s1 · s2"]
+        P2["Check target leakage"]
+        P3["Check temporal availability"]
+        P4["Approve prediction-time features"]
+        P5["Document provenance + exclusions"]
+
+        P1 --> P2
+        P1 --> P3
+        P2 --> P4
+        P3 --> P4
+        P4 --> P5
     end
 
-    subgraph MODEL["5 · Modeling"]
+
+    %% =========================================================
+    %% 5. TEMPORAL FEATURE ENGINEERING
+    %% =========================================================
+    subgraph FEATURES["5 · Temporal Feature Engineering"]
         direction LR
 
-        E1["Raw NWM<br/>baseline"]
+        C1["NWM flow lags<br/>Qt, Qt−1, Qt−3, Qt−7"]
+        C2["Precipitation history<br/>Pt, P3d, P7d, P14d"]
+        C3["Temperature history<br/>Tt, Tt−1, Tt−3, Tt−7"]
+        C4["Hydrologic state features<br/>storage + SWE + lags"]
+        C5["Cyclic seasonality<br/>sin(DOY), cos(DOY)"]
+        C6["Static watershed context"]
+        C7["Model-ready feature matrix"]
 
-        E2["Residual target<br/>Qobs − QNWM"]
-
-        E3["XGBoost<br/>residual model"]
-
-        E4["Corrected forecast<br/>QNWM + residual_hat"]
+        C1 --> C7
+        C2 --> C7
+        C3 --> C7
+        C4 --> C7
+        C5 --> C7
+        C6 --> C7
     end
 
-    subgraph EVAL["6 · Extreme-Aware Evaluation"]
+
+    %% =========================================================
+    %% 6. LEAKAGE-SAFE SPLIT
+    %% =========================================================
+    subgraph SPLIT["6 · Leakage-Safe Temporal Split"]
         direction LR
 
-        F1["RMSE · MAE · Bias"]
-        F2["NSE · KGE"]
-        F3["Q95 / Q99 RMSE"]
-        F4["Peak magnitude<br/>error"]
-        F5["Peak timing<br/>error"]
-        F6["POD · FAR · CSI"]
+        D1["TRAIN<br/>earlier historical period"]
+        D2["VALIDATION<br/>later period"]
+        D3["HELD-OUT TEST<br/>final untouched period"]
+
+        D1 -->|"fit preprocessing + model"| D2
+        D2 -->|"model selection / tuning"| D3
     end
 
-    subgraph UQ["7 · Uncertainty Quantification"]
+
+    %% =========================================================
+    %% 7. MODELING
+    %% =========================================================
+    subgraph MODEL["7 · Residual-Correction Modeling"]
+        direction TB
+
+        E1["Raw NWM reference"]
+        E2["Residual target<br/><b>e_t = Qobs − QNWM</b>"]
+        E3["XGBoost residual model"]
+        E4["Predicted residual<br/><b>ê_t</b>"]
+        E5["Corrected discharge<br/><b>Q̂corrected = QNWM + ê_t</b>"]
+
+        E1 --> E2
+        E2 --> E3
+        E3 --> E4
+        E1 --> E5
+        E4 --> E5
+    end
+
+
+    %% =========================================================
+    %% 8. EXTREME-AWARE EVALUATION
+    %% =========================================================
+    subgraph EVAL["8 · Extreme-Aware Evaluation"]
         direction LR
 
-        G1["Quantile<br/>regression"]
-        G2["Prediction<br/>intervals"]
-        G3["Conformal<br/>calibration"]
-        G4["Threshold-exceedance<br/>probability"]
+        F1["Average-flow metrics<br/>RMSE · MAE · Bias"]
+        F2["Hydrologic efficiency<br/>NSE · KGE"]
+        F3["High-flow performance<br/>Q95 / Q99 RMSE"]
+        F4["Peak magnitude error"]
+        F5["Peak timing error"]
+        F6["Event detection<br/>POD · FAR · CSI"]
+        F7["Raw NWM vs corrected model<br/>paired comparison"]
     end
 
-    subgraph ADV["8 · Advanced AI Roadmap"]
+
+    %% =========================================================
+    %% 9. UNCERTAINTY
+    %% =========================================================
+    subgraph UQ["9 · Uncertainty Quantification"]
+        direction LR
+
+        G1["Quantile regression"]
+        G2["Prediction intervals"]
+        G3["Conformal calibration"]
+        G4["Threshold-exceedance probability<br/><b>P(Q > Qcritical)</b>"]
+
+        G1 --> G2
+        G2 --> G3
+        G3 --> G4
+    end
+
+
+    %% =========================================================
+    %% 10. ADVANCED AI
+    %% =========================================================
+    subgraph ADV["10 · Advanced AI Roadmap"]
         direction LR
 
         H1["LSTM / GRU"]
         H2["Transformer / N-HiTS"]
-        H3["Directed river-network<br/>GNN"]
-        H4["Hybrid spatiotemporal<br/>model"]
-        H5["Probabilistic<br/>extreme-event head"]
-        H6["Ablation +<br/>model comparison"]
+        H3["Directed river-network GNN"]
+        H4["Hybrid spatiotemporal model"]
+        H5["Probabilistic extreme-event head"]
+        H6["Ablation + model comparison"]
+
+        H1 --> H4
+        H2 --> H4
+        H3 --> H4
+        H4 --> H5
+        H5 --> H6
     end
 
+
+    %% =========================================================
+    %% CROSS-STAGE CONNECTIONS
+    %% =========================================================
     A1 --> B2
-    A2 --> B2
-    A3 --> C1
-    A4 --> C5
+    A3 --> B2
 
-    B6 --> C1
-    B6 --> C2
-    B6 --> C3
-    B6 --> C4
-    B6 --> C5
+    A1 --> Q1
+    A2 --> Q1
+    A3 --> Q1
+    A4 --> Q1
+    A5 --> Q1
 
-    C1 --> C6
-    C2 --> C6
-    C3 --> C6
-    C4 --> C6
-    C5 --> C6
+    B6 -. reconstruction validation .-> Q1
 
-    C6 --> D1
-    C6 --> D2
-    C6 --> D3
+    Q7 --> P1
+    P5 --> C1
+    P5 --> C2
+    P5 --> C3
+    P5 --> C4
+    P5 --> C5
+    P5 --> C6
+
+    C7 --> D1
+    C7 --> D2
+    C7 --> D3
 
     D1 --> E3
     D2 --> E3
-    E2 --> E3
-    E3 --> E4
+    D3 --> E5
 
-    E1 -. baseline comparison .-> E4
-    D3 --> E4
-
-    E4 --> F1
-    E4 --> F2
-    E4 --> F3
-    E4 --> F4
-    E4 --> F5
-    E4 --> F6
+    E5 --> F1
+    E5 --> F2
+    E5 --> F3
+    E5 --> F4
+    E5 --> F5
+    E5 --> F6
+    E1 -. baseline comparison .-> F7
+    E5 --> F7
 
     F3 --> G1
     F4 --> G1
     F6 --> G4
 
-    G1 --> G2
-    G2 --> G3
-
     G3 --> H1
     G3 --> H2
-    H1 --> H4
-    H2 --> H4
-    H3 --> H4
-    H4 --> H5
-    H5 --> H6
+    G3 --> H3
 
-    classDef input fill:#ede9fe,stroke:#7c3aed,color:#111827,stroke-width:2px,font-size:24px;
-    classDef complete fill:#14532d,stroke:#166534,color:#ffffff,stroke-width:2px,font-size:24px;
-    classDef active fill:#075985,stroke:#0369a1,color:#ffffff,stroke-width:2px,font-size:24px;
-    classDef planned fill:#374151,stroke:#6b7280,color:#ffffff,stroke-width:2px,font-size:24px;
-    classDef failure fill:#991b1b,stroke:#b91c1c,color:#ffffff,stroke-width:2px,font-size:24px;
 
-    class A1,A2,A3,A4 input;
+    %% =========================================================
+    %% STYLES
+    %% =========================================================
+    classDef complete fill:#1b4332,stroke:#2d6a4f,color:#ffffff,font-weight:bold;
+    classDef active fill:#023047,stroke:#219ebc,color:#ffffff,font-weight:bold;
+    classDef next fill:#7c2d12,stroke:#ea580c,color:#ffffff,font-weight:bold;
+    classDef planned fill:#3c3744,stroke:#7a7788,color:#ffffff,font-weight:bold;
+    classDef failure fill:#7f1d1d,stroke:#b91c1c,color:#ffffff,font-weight:bold;
+
     class B1,B2,B3,B4,B5,B6 complete;
     class B7 failure;
-    class C1,C2,C3,C4,C5,C6,D1,D2,D3,E1,E2,E3,E4,F1,F2,F3,F4,F5,F6 active;
-    class G1,G2,G3,G4,H1,H2,H3,H4,H5,H6 planned;
+
+    class Q1,Q2,Q3,Q4,Q5,Q6,Q7 complete;
+
+    class P1,P2,P3,P4,P5 next;
+
+    class C1,C2,C3,C4,C5,C6,C7 active;
+    class D1,D2,D3 active;
+    class E1,E2,E3,E4,E5 active;
+    class F1,F2,F3,F4,F5,F6,F7 active;
+
+    class G1,G2,G3,G4 planned;
+    class H1,H2,H3,H4,H5,H6 planned;
 ```
 
 **Legend:**

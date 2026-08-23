@@ -112,7 +112,7 @@ scientifically adjudicated.
 
 
 # Research pipeline
-```
+```mermaid text
 %%{init: {
   "theme": "base",
   "themeVariables": {
@@ -395,11 +395,10 @@ flowchart TD
 
     class G1,G2,G3,G4 planned;
     class H1,H2,H3,H4,H5,H6 planned;
-```
 
 **Legend:**
 🟢 complete and validated · 🔵 near-term implementation · ⚫ longer-term roadmap · 🔴 validation failure path
-
+```
 ---
 
 ## Stage 1 — Dataset reconstruction ✅

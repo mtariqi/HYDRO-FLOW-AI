@@ -9,6 +9,14 @@ Pooled/global Q95/Q99 thresholds are retained only as coarse diagnostic
 summaries because pooling across watersheds of different sizes can make
 "extreme" flow definitions physically misleading.
 
+Beyond the numerical baseline, this script also runs station-level QC:
+an automated scale-anomaly screen flags stations where NWM and observed
+flow occupy implausibly different scales, and an exclusion registry
+records the human/scientific adjudication of each flagged station.
+Detection and exclusion are deliberately separate: a flagged station
+is never automatically excluded, but a flagged station with NO
+registry entry yet defaults to model_eligible=False until reviewed.
+
 Expected input columns
 ----------------------
 Required:
@@ -39,13 +47,19 @@ Optional:
     python src/hydro_flow_ai/evaluate_raw_nwm.py \
         --data-root /path/to/Hydrologic-AI \
         --metrics-dir results/metrics \
+        --exclusion-registry configs/station_exclusions.csv \
         --min-rows 20 \
+        --scale-ratio-threshold 5 \
+        --scale-lower-quantile 0.05 \
+        --scale-upper-quantile 0.95 \
         --fail-on-duplicate-site-date
 
 Outputs
 -------
 results/metrics/raw_nwm_global_diagnostic.csv
 results/metrics/raw_nwm_by_station.csv
+results/metrics/nwm_scale_anomaly_screen.csv
+results/metrics/station_qc_summary.csv
 """
 
 from __future__ import annotations
@@ -60,6 +74,15 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+from hydro_flow_ai.qc_registry import (
+    RegistryError,
+    build_station_qc_summary,
+    load_exclusion_registry,
+)
+from hydro_flow_ai.screen_scale_anomalies import (
+    ScaleAuditError,
+    screen_for_scale_anomalies,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +107,7 @@ class Paths:
 
     input: Path
     metrics_dir: Path = ROOT / "results" / "metrics"
+    exclusion_registry: Path | None = ROOT / "configs" / "station_exclusions.csv"
 
 
 class EvaluationError(RuntimeError):
@@ -95,10 +119,7 @@ class EvaluationError(RuntimeError):
 # ---------------------------------------------------------------------
 
 
-def resolve_input_path(
-    explicit: Path | None,
-    data_root: Path | None,
-) -> Path:
+def resolve_input_path(explicit: Path | None, data_root: Path | None) -> Path:
     """Resolve the Parquet input location.
 
     Priority:
@@ -106,13 +127,10 @@ def resolve_input_path(
         2. --data-root
         3. NWM_DATA_ROOT environment variable, resolved in parse_args()
     """
-
     if explicit is not None:
         return explicit.expanduser().resolve()
-
     if data_root is not None:
         return (data_root.expanduser() / INPUT_RELATIVE).resolve()
-
     raise EvaluationError(
         "Could not locate the input Parquet file.\n"
         "Provide one of:\n"
@@ -127,15 +145,8 @@ def resolve_input_path(
 # ---------------------------------------------------------------------
 
 
-def require_columns(
-    df: pd.DataFrame,
-    columns: set[str],
-    name: str,
-) -> None:
-    """Raise a clear error when required columns are missing."""
-
+def require_columns(df: pd.DataFrame, columns: set[str], name: str) -> None:
     missing = sorted(columns.difference(df.columns))
-
     if missing:
         raise EvaluationError(
             f"{name} is missing required column(s): {missing}. "
@@ -143,70 +154,32 @@ def require_columns(
         )
 
 
-def prepare_data(
-    df: pd.DataFrame,
-    *,
-    fail_on_duplicate_site_date: bool = False,
-) -> pd.DataFrame:
+def prepare_data(df: pd.DataFrame, *, fail_on_duplicate_site_date: bool = False) -> pd.DataFrame:
     """Normalize key columns and run dataset-level integrity checks."""
-
     df = df.copy()
 
-    # -------------------------------------------------------------
-    # Datetime normalization
-    # -------------------------------------------------------------
-    df["datetime"] = pd.to_datetime(
-        df["datetime"],
-        errors="coerce",
-    )
-
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
     bad_dates = int(df["datetime"].isna().sum())
-
     if bad_dates:
-        raise EvaluationError(
-            f"Input contains {bad_dates} invalid or missing datetime value(s)."
-        )
+        raise EvaluationError(f"Input contains {bad_dates} invalid or missing datetime value(s).")
 
-    # -------------------------------------------------------------
-    # Station ID normalization
-    # -------------------------------------------------------------
     df["station_id"] = df["station_id"].astype("string")
-
     bad_stations = int(df["station_id"].isna().sum())
-
     if bad_stations:
-        raise EvaluationError(
-            f"Input contains {bad_stations} missing station_id value(s)."
-        )
+        raise EvaluationError(f"Input contains {bad_stations} missing station_id value(s).")
 
-    # -------------------------------------------------------------
-    # Numeric normalization
-    # -------------------------------------------------------------
     for col in ["flow_cms", "NWM_flow"]:
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce",
-        )
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # -------------------------------------------------------------
-    # Duplicate station/date detection
-    # -------------------------------------------------------------
-    duplicate_mask = df.duplicated(
-        ["station_id", "datetime"],
-        keep=False,
-    )
-
+    duplicate_mask = df.duplicated(["station_id", "datetime"], keep=False)
     n_duplicate_rows = int(duplicate_mask.sum())
-
     if n_duplicate_rows:
         message = (
             f"Found {n_duplicate_rows} row(s) participating in duplicate "
             "(station_id, datetime) combinations."
         )
-
         if fail_on_duplicate_site_date:
             raise EvaluationError(message)
-
         logger.warning(message)
 
     return df
@@ -217,41 +190,8 @@ def prepare_data(
 # ---------------------------------------------------------------------
 
 
-def finite_pair_mask(
-    obs: pd.Series,
-    pred: pd.Series,
-) -> np.ndarray:
-    """Return mask where both observed and predicted values are finite."""
-
-    obs_arr = pd.to_numeric(
-        obs,
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    pred_arr = pd.to_numeric(
-        pred,
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    return (
-        np.isfinite(obs_arr)
-        & np.isfinite(pred_arr)
-    )
-
-
-def finite_observed_subset(
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Return rows with finite observed streamflow.
-
-    Threshold estimation must not include NaN or infinite observed values.
-    """
-
-    flow = pd.to_numeric(
-        df["flow_cms"],
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
+def finite_observed_subset(df: pd.DataFrame) -> pd.DataFrame:
+    flow = pd.to_numeric(df["flow_cms"], errors="coerce").to_numpy(dtype=float)
     return df.loc[np.isfinite(flow)].copy()
 
 
@@ -260,36 +200,10 @@ def finite_observed_subset(
 # ---------------------------------------------------------------------
 
 
-def metrics(
-    obs: pd.Series,
-    pred: pd.Series,
-    *,
-    label: str = "",
-    min_rows: int = DEFAULT_MIN_ROWS,
-) -> dict[str, float | int]:
-    """Compute RMSE, MAE, and bias using finite observation pairs.
-
-    Non-finite values are removed pairwise.
-
-    Metrics are reported as NaN when fewer than `min_rows` valid pairs
-    remain.
-    """
-
-    obs_arr = pd.to_numeric(
-        obs,
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    pred_arr = pd.to_numeric(
-        pred,
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    valid = (
-        np.isfinite(obs_arr)
-        & np.isfinite(pred_arr)
-    )
-
+def metrics(obs: pd.Series, pred: pd.Series, *, label: str = "", min_rows: int = DEFAULT_MIN_ROWS) -> dict:
+    obs_arr = pd.to_numeric(obs, errors="coerce").to_numpy(dtype=float)
+    pred_arr = pd.to_numeric(pred, errors="coerce").to_numpy(dtype=float)
+    valid = np.isfinite(obs_arr) & np.isfinite(pred_arr)
     obs_clean = obs_arr[valid]
     pred_clean = pred_arr[valid]
 
@@ -297,295 +211,90 @@ def metrics(
     n_valid = int(valid.sum())
     n_removed = n_total - n_valid
 
-    result: dict[str, float | int] = {
-        "n_total": n_total,
-        "n_valid": n_valid,
-        "n_removed": n_removed,
-        "rmse": np.nan,
-        "mae": np.nan,
-        "bias": np.nan,
-    }
+    result = {"n_total": n_total, "n_valid": n_valid, "n_removed": n_removed,
+              "rmse": np.nan, "mae": np.nan, "bias": np.nan}
 
     if n_valid < min_rows:
         if n_total:
             logger.warning(
-                "%s: only %d valid finite row(s) out of %d; "
-                "minimum required is %d. Reporting NaN metrics.",
-                label or "regime",
-                n_valid,
-                n_total,
-                min_rows,
+                "%s: only %d valid finite row(s) out of %d; minimum required is %d. Reporting NaN metrics.",
+                label or "regime", n_valid, n_total, min_rows,
             )
-
         return result
 
     errors = pred_clean - obs_clean
-
-    result.update(
-        {
-            "rmse": float(
-                np.sqrt(
-                    mean_squared_error(
-                        obs_clean,
-                        pred_clean,
-                    )
-                )
-            ),
-            "mae": float(
-                mean_absolute_error(
-                    obs_clean,
-                    pred_clean,
-                )
-            ),
-            "bias": float(errors.mean()),
-        }
-    )
-
+    result.update({
+        "rmse": float(np.sqrt(mean_squared_error(obs_clean, pred_clean))),
+        "mae": float(mean_absolute_error(obs_clean, pred_clean)),
+        "bias": float(errors.mean()),
+    })
     return result
 
 
-# ---------------------------------------------------------------------
-# Global pooled diagnostics
-# ---------------------------------------------------------------------
-
-
-def evaluate_global(
-    df: pd.DataFrame,
-    *,
-    min_rows: int,
-) -> pd.DataFrame:
-    """Evaluate pooled/global metrics.
-
-    IMPORTANT:
-        Pooled Q95/Q99 thresholds are diagnostic only.
-        They are not the primary scientific extreme-flow definition.
-    """
-
+def evaluate_global(df: pd.DataFrame, *, min_rows: int) -> pd.DataFrame:
     finite_df = finite_observed_subset(df)
-
     if finite_df.empty:
-        raise EvaluationError(
-            "No finite observed flow values are available for "
-            "global threshold calculation."
-        )
+        raise EvaluationError("No finite observed flow values are available for global threshold calculation.")
 
-    q95 = float(
-        finite_df["flow_cms"].quantile(0.95)
-    )
-
-    q99 = float(
-        finite_df["flow_cms"].quantile(0.99)
-    )
+    q95 = float(finite_df["flow_cms"].quantile(0.95))
+    q99 = float(finite_df["flow_cms"].quantile(0.99))
 
     regimes = {
-        "ALL": (
-            finite_df,
-            np.nan,
-        ),
-        "GLOBAL_Q95+": (
-            finite_df[
-                finite_df["flow_cms"] >= q95
-            ],
-            q95,
-        ),
-        "GLOBAL_Q99+": (
-            finite_df[
-                finite_df["flow_cms"] >= q99
-            ],
-            q99,
-        ),
+        "ALL": (finite_df, np.nan),
+        "GLOBAL_Q95+": (finite_df[finite_df["flow_cms"] >= q95], q95),
+        "GLOBAL_Q99+": (finite_df[finite_df["flow_cms"] >= q99], q99),
     }
-
     rows = []
-
     for regime, (subset, threshold) in regimes.items():
-
-        result = metrics(
-            subset["flow_cms"],
-            subset["NWM_flow"],
-            label=f"global/{regime}",
-            min_rows=min_rows,
-        )
-
-        rows.append(
-            {
-                "regime": regime,
-                "threshold_scope": "pooled_diagnostic",
-                "threshold_cms": threshold,
-                **result,
-            }
-        )
-
+        result = metrics(subset["flow_cms"], subset["NWM_flow"], label=f"global/{regime}", min_rows=min_rows)
+        rows.append({"regime": regime, "threshold_scope": "pooled_diagnostic", "threshold_cms": threshold, **result})
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------
-# Station-specific evaluation
-# ---------------------------------------------------------------------
-
-
-def evaluate_by_station(
-    df: pd.DataFrame,
-    *,
-    min_rows: int,
-) -> pd.DataFrame:
-    """Evaluate each gauge using its own Q95/Q99 thresholds."""
-
+def evaluate_by_station(df: pd.DataFrame, *, min_rows: int) -> pd.DataFrame:
     rows = []
-
-    grouped = df.groupby(
-        "station_id",
-        sort=True,
-    )
-
+    grouped = df.groupby("station_id", sort=True)
     for station, group in grouped:
-
-        group = (
-            group
-            .sort_values("datetime")
-            .reset_index(drop=True)
-        )
-
+        group = group.sort_values("datetime").reset_index(drop=True)
         finite_obs = finite_observed_subset(group)
-
         if finite_obs.empty:
-            logger.warning(
-                "Skipping station %s: no finite observed streamflow.",
-                station,
-            )
+            logger.warning("Skipping station %s: no finite observed streamflow.", station)
             continue
 
-        # ---------------------------------------------------------
-        # Station-specific extreme thresholds
-        # ---------------------------------------------------------
-        station_q95 = float(
-            finite_obs["flow_cms"].quantile(0.95)
-        )
+        station_q95 = float(finite_obs["flow_cms"].quantile(0.95))
+        station_q99 = float(finite_obs["flow_cms"].quantile(0.99))
+        q95_subset = finite_obs[finite_obs["flow_cms"] >= station_q95]
+        q99_subset = finite_obs[finite_obs["flow_cms"] >= station_q99]
 
-        station_q99 = float(
-            finite_obs["flow_cms"].quantile(0.99)
-        )
+        overall = metrics(group["flow_cms"], group["NWM_flow"], label=f"station {station}/ALL", min_rows=min_rows)
+        q95_metrics = metrics(q95_subset["flow_cms"], q95_subset["NWM_flow"], label=f"station {station}/Q95+", min_rows=min_rows)
+        q99_metrics = metrics(q99_subset["flow_cms"], q99_subset["NWM_flow"], label=f"station {station}/Q99+", min_rows=min_rows)
 
-        q95_subset = finite_obs[
-            finite_obs["flow_cms"] >= station_q95
-        ]
+        nwm_numeric = pd.to_numeric(group["NWM_flow"], errors="coerce")
+        finite_nwm = nwm_numeric[np.isfinite(nwm_numeric.to_numpy(dtype=float))]
+        nwm_max = float(finite_nwm.max()) if not finite_nwm.empty else np.nan
 
-        q99_subset = finite_obs[
-            finite_obs["flow_cms"] >= station_q99
-        ]
-
-        # ---------------------------------------------------------
-        # Overall metrics
-        # ---------------------------------------------------------
-        overall = metrics(
-            group["flow_cms"],
-            group["NWM_flow"],
-            label=f"station {station}/ALL",
-            min_rows=min_rows,
-        )
-
-        # ---------------------------------------------------------
-        # Extreme metrics
-        # ---------------------------------------------------------
-        q95_metrics = metrics(
-            q95_subset["flow_cms"],
-            q95_subset["NWM_flow"],
-            label=f"station {station}/Q95+",
-            min_rows=min_rows,
-        )
-
-        q99_metrics = metrics(
-            q99_subset["flow_cms"],
-            q99_subset["NWM_flow"],
-            label=f"station {station}/Q99+",
-            min_rows=min_rows,
-        )
-
-        # ---------------------------------------------------------
-        # Descriptive values
-        # ---------------------------------------------------------
-        nwm_numeric = pd.to_numeric(
-            group["NWM_flow"],
-            errors="coerce",
-        )
-
-        finite_nwm = nwm_numeric[
-            np.isfinite(
-                nwm_numeric.to_numpy(dtype=float)
-            )
-        ]
-
-        nwm_max = (
-            float(finite_nwm.max())
-            if not finite_nwm.empty
-            else np.nan
-        )
-
-        rows.append(
-            {
-                "station_id": station,
-
-                "start": group["datetime"].min(),
-                "end": group["datetime"].max(),
-
-                "station_rows": len(group),
-
-                "obs_mean_cms": float(
-                    finite_obs["flow_cms"].mean()
-                ),
-
-                "obs_max_cms": float(
-                    finite_obs["flow_cms"].max()
-                ),
-
-                "nwm_max_cms": nwm_max,
-
-                # Overall
-                "overall_n_total": overall["n_total"],
-                "overall_n_valid": overall["n_valid"],
-                "overall_n_removed": overall["n_removed"],
-                "overall_bias_cms": overall["bias"],
-                "overall_mae_cms": overall["mae"],
-                "overall_rmse_cms": overall["rmse"],
-
-                # Q95
-                "q95_cms": station_q95,
-                "q95_n_total": q95_metrics["n_total"],
-                "q95_n_valid": q95_metrics["n_valid"],
-                "q95_n_removed": q95_metrics["n_removed"],
-                "q95_bias_cms": q95_metrics["bias"],
-                "q95_mae_cms": q95_metrics["mae"],
-                "q95_rmse_cms": q95_metrics["rmse"],
-                "q95_sufficient_samples": (
-                    q95_metrics["n_valid"] >= min_rows
-                ),
-
-                # Q99
-                "q99_cms": station_q99,
-                "q99_n_total": q99_metrics["n_total"],
-                "q99_n_valid": q99_metrics["n_valid"],
-                "q99_n_removed": q99_metrics["n_removed"],
-                "q99_bias_cms": q99_metrics["bias"],
-                "q99_mae_cms": q99_metrics["mae"],
-                "q99_rmse_cms": q99_metrics["rmse"],
-                "q99_sufficient_samples": (
-                    q99_metrics["n_valid"] >= min_rows
-                ),
-            }
-        )
+        rows.append({
+            "station_id": station, "start": group["datetime"].min(), "end": group["datetime"].max(),
+            "station_rows": len(group), "obs_mean_cms": float(finite_obs["flow_cms"].mean()),
+            "obs_max_cms": float(finite_obs["flow_cms"].max()), "nwm_max_cms": nwm_max,
+            "overall_n_total": overall["n_total"], "overall_n_valid": overall["n_valid"],
+            "overall_n_removed": overall["n_removed"], "overall_bias_cms": overall["bias"],
+            "overall_mae_cms": overall["mae"], "overall_rmse_cms": overall["rmse"],
+            "q95_cms": station_q95, "q95_n_total": q95_metrics["n_total"], "q95_n_valid": q95_metrics["n_valid"],
+            "q95_n_removed": q95_metrics["n_removed"], "q95_bias_cms": q95_metrics["bias"],
+            "q95_mae_cms": q95_metrics["mae"], "q95_rmse_cms": q95_metrics["rmse"],
+            "q95_sufficient_samples": q95_metrics["n_valid"] >= min_rows,
+            "q99_cms": station_q99, "q99_n_total": q99_metrics["n_total"], "q99_n_valid": q99_metrics["n_valid"],
+            "q99_n_removed": q99_metrics["n_removed"], "q99_bias_cms": q99_metrics["bias"],
+            "q99_mae_cms": q99_metrics["mae"], "q99_rmse_cms": q99_metrics["rmse"],
+            "q99_sufficient_samples": q99_metrics["n_valid"] >= min_rows,
+        })
 
     result = pd.DataFrame(rows)
-
     if result.empty:
-        raise EvaluationError(
-            "No stations could be evaluated."
-        )
-
-    return result.sort_values(
-        "q95_rmse_cms",
-        ascending=False,
-        na_position="last",
-    )
+        raise EvaluationError("No stations could be evaluated.")
+    return result.sort_values("q95_rmse_cms", ascending=False, na_position="last")
 
 
 # ---------------------------------------------------------------------
@@ -598,185 +307,130 @@ def run(
     *,
     min_rows: int,
     fail_on_duplicate_site_date: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Run the complete raw-NWM baseline evaluation."""
+    scale_ratio_threshold: float = 5.0,
+    scale_lower_quantile: float = 0.05,
+    scale_upper_quantile: float = 0.95,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Run the complete raw-NWM baseline evaluation plus station QC.
 
+    Returns (global_metrics, station_metrics, scale_screen, station_qc).
+    Note this is a different return shape than earlier versions of this
+    function (which returned a 2-tuple) -- update any caller accordingly.
+    """
     if not paths.input.exists():
-        raise EvaluationError(
-            f"Input file does not exist: {paths.input}"
-        )
+        raise EvaluationError(f"Input file does not exist: {paths.input}")
 
-    logger.info(
-        "Loading input dataset: %s",
-        paths.input,
-    )
-
+    logger.info("Loading input dataset: %s", paths.input)
     df = pd.read_parquet(paths.input)
 
-    require_columns(
-        df,
-        REQUIRED_COLUMNS,
-        "Input dataframe",
-    )
+    require_columns(df, REQUIRED_COLUMNS, "Input dataframe")
+    df = prepare_data(df, fail_on_duplicate_site_date=fail_on_duplicate_site_date)
 
-    df = prepare_data(
-        df,
-        fail_on_duplicate_site_date=(
-            fail_on_duplicate_site_date
-        ),
-    )
+    logger.info("Loaded %d rows across %d station(s).", len(df), df["station_id"].nunique())
 
-    logger.info(
-        "Loaded %d rows across %d station(s).",
-        len(df),
-        df["station_id"].nunique(),
-    )
-
-    # -------------------------------------------------------------
-    # Missing / non-finite diagnostics
-    # -------------------------------------------------------------
-    flow_numeric = pd.to_numeric(
-        df["flow_cms"],
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    nwm_numeric = pd.to_numeric(
-        df["NWM_flow"],
-        errors="coerce",
-    ).to_numpy(dtype=float)
-
-    n_bad_flow = int(
-        (~np.isfinite(flow_numeric)).sum()
-    )
-
-    n_bad_nwm = int(
-        (~np.isfinite(nwm_numeric)).sum()
-    )
-
+    flow_numeric = pd.to_numeric(df["flow_cms"], errors="coerce").to_numpy(dtype=float)
+    nwm_numeric = pd.to_numeric(df["NWM_flow"], errors="coerce").to_numpy(dtype=float)
+    n_bad_flow = int((~np.isfinite(flow_numeric)).sum())
+    n_bad_nwm = int((~np.isfinite(nwm_numeric)).sum())
     if n_bad_flow or n_bad_nwm:
         logger.warning(
-            "Input contains non-finite values: "
-            "%d in flow_cms, %d in NWM_flow. "
+            "Input contains non-finite values: %d in flow_cms, %d in NWM_flow. "
             "These will be removed pairwise within each metric regime.",
-            n_bad_flow,
-            n_bad_nwm,
+            n_bad_flow, n_bad_nwm,
         )
 
     # -------------------------------------------------------------
-    # Evaluate
+    # Baseline evaluation (numerically unchanged from prior versions)
     # -------------------------------------------------------------
-    global_metrics = evaluate_global(
+    global_metrics = evaluate_global(df, min_rows=min_rows)
+    station_metrics = evaluate_by_station(df, min_rows=min_rows)
+
+    # -------------------------------------------------------------
+    # Station QC: scale-anomaly detection
+    # -------------------------------------------------------------
+    logger.info("Running station-level NWM/observed scale-anomaly screen.")
+    scale_screen = screen_for_scale_anomalies(
         df,
+        ratio_threshold=scale_ratio_threshold,
+        lower_quantile=scale_lower_quantile,
+        upper_quantile=scale_upper_quantile,
         min_rows=min_rows,
     )
 
-    station_metrics = evaluate_by_station(
-        df,
-        min_rows=min_rows,
+    # -------------------------------------------------------------
+    # Human/scientific adjudication registry
+    # -------------------------------------------------------------
+    registry = load_exclusion_registry(paths.exclusion_registry)
+    station_qc = build_station_qc_summary(
+        station_metrics=station_metrics,
+        scale_screen=scale_screen,
+        registry=registry,
     )
 
     # -------------------------------------------------------------
-    # Save results
+    # Save all four artifacts
     # -------------------------------------------------------------
-    paths.metrics_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    paths.metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    global_path = (
-        paths.metrics_dir
-        / "raw_nwm_global_diagnostic.csv"
-    )
+    global_path = paths.metrics_dir / "raw_nwm_global_diagnostic.csv"
+    station_path = paths.metrics_dir / "raw_nwm_by_station.csv"
+    screen_path = paths.metrics_dir / "nwm_scale_anomaly_screen.csv"
+    qc_path = paths.metrics_dir / "station_qc_summary.csv"
 
-    station_path = (
-        paths.metrics_dir
-        / "raw_nwm_by_station.csv"
-    )
-
-    global_metrics.to_csv(
-        global_path,
-        index=False,
-    )
-
-    station_metrics.to_csv(
-        station_path,
-        index=False,
-    )
+    global_metrics.to_csv(global_path, index=False)
+    station_metrics.to_csv(station_path, index=False)
+    scale_screen.to_csv(screen_path, index=False)
+    station_qc.to_csv(qc_path, index=False)
 
     # -------------------------------------------------------------
-    # Sample sufficiency diagnostics
+    # Sample sufficiency diagnostics (baseline metrics)
     # -------------------------------------------------------------
-    insufficient_q95 = int(
-        (
-            ~station_metrics[
-                "q95_sufficient_samples"
-            ]
-        ).sum()
+    insufficient_q95 = int((~station_metrics["q95_sufficient_samples"]).sum())
+    insufficient_q99 = int((~station_metrics["q99_sufficient_samples"]).sum())
+
+    # -------------------------------------------------------------
+    # Eligibility summary (station QC)
+    # -------------------------------------------------------------
+    n_total_stations = len(station_qc)
+    n_flagged = int(station_qc["scale_flagged"].fillna(False).sum())
+    n_eligible = int(station_qc["model_eligible"].sum())
+    n_blocked = n_total_stations - n_eligible
+
+    logger.info(
+        "Station QC summary: total=%d, scale-flagged=%d, model-eligible=%d, blocked=%d",
+        n_total_stations, n_flagged, n_eligible, n_blocked,
     )
 
-    insufficient_q99 = int(
-        (
-            ~station_metrics[
-                "q99_sufficient_samples"
-            ]
-        ).sum()
-    )
+    blocked = station_qc.loc[
+        ~station_qc["model_eligible"],
+        ["station_id", "scale_flagged", "registry_status", "registry_reason"],
+    ]
+    if not blocked.empty:
+        logger.warning("\nStations currently blocked from pooled modeling:\n%s", blocked.to_string(index=False))
 
     # -------------------------------------------------------------
     # Console summary
     # -------------------------------------------------------------
-    logger.info(
-        "\nGLOBAL RAW NWM "
-        "(pooled thresholds — diagnostic only)\n%s",
-        global_metrics.to_string(index=False),
-    )
+    logger.info("\nGLOBAL RAW NWM (pooled thresholds — diagnostic only)\n%s", global_metrics.to_string(index=False))
 
     display_columns = [
-        "station_id",
-        "station_rows",
-        "overall_bias_cms",
-        "overall_rmse_cms",
-        "q95_cms",
-        "q95_n_valid",
-        "q95_rmse_cms",
-        "q99_cms",
-        "q99_n_valid",
-        "q99_rmse_cms",
+        "station_id", "station_rows", "overall_bias_cms", "overall_rmse_cms",
+        "q95_cms", "q95_n_valid", "q95_rmse_cms", "q99_cms", "q99_n_valid", "q99_rmse_cms",
     ]
-
     logger.info(
         "\nWorst 20 stations by station-specific Q95 RMSE\n%s",
-        station_metrics[
-            display_columns
-        ]
-        .head(20)
-        .to_string(index=False),
+        station_metrics[display_columns].head(20).to_string(index=False),
     )
 
-    logger.info(
-        "Stations below Q95 minimum sample requirement: %d",
-        insufficient_q95,
-    )
+    logger.info("Stations below Q95 minimum sample requirement: %d", insufficient_q95)
+    logger.info("Stations below Q99 minimum sample requirement: %d", insufficient_q99)
 
-    logger.info(
-        "Stations below Q99 minimum sample requirement: %d",
-        insufficient_q99,
-    )
+    logger.info("Saved global diagnostics: %s", global_path)
+    logger.info("Saved station metrics: %s", station_path)
+    logger.info("Saved scale screen: %s", screen_path)
+    logger.info("Saved station QC summary: %s", qc_path)
 
-    logger.info(
-        "Saved global diagnostics: %s",
-        global_path,
-    )
-
-    logger.info(
-        "Saved station metrics: %s",
-        station_path,
-    )
-
-    return (
-        global_metrics,
-        station_metrics,
-    )
+    return global_metrics, station_metrics, scale_screen, station_qc
 
 
 # ---------------------------------------------------------------------
@@ -784,126 +438,69 @@ def run(
 # ---------------------------------------------------------------------
 
 
-def parse_args(
-    argv: list[str] | None = None,
-) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    env_root = os.environ.get(DATA_ROOT_ENV_VAR)
 
-    env_root = os.environ.get(
-        DATA_ROOT_ENV_VAR
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    parser.add_argument(
-        "--data-root",
-        type=Path,
-        default=(
-            Path(env_root)
-            if env_root
-            else None
-        ),
-        help=(
-            "Directory containing data_model_input.parquet. "
-            f"Defaults to ${DATA_ROOT_ENV_VAR} when defined."
-        ),
-    )
-
-    parser.add_argument(
-        "--input-path",
-        type=Path,
-        default=None,
-        help=(
-            "Direct path to data_model_input.parquet. "
-            "Overrides --data-root."
-        ),
-    )
-
-    parser.add_argument(
-        "--metrics-dir",
-        type=Path,
-        default=ROOT / "results" / "metrics",
-        help="Directory for CSV metric outputs.",
-    )
-
-    parser.add_argument(
-        "--min-rows",
-        type=int,
-        default=DEFAULT_MIN_ROWS,
-        help=(
-            "Minimum number of valid observation/prediction "
-            "pairs required to report metrics for a regime."
-        ),
-    )
-
-    parser.add_argument(
-        "--fail-on-duplicate-site-date",
-        action="store_true",
-        help=(
-            "Treat duplicate (station_id, datetime) rows as "
-            "a fatal data-integrity error."
-        ),
-    )
-
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Enable debug logging.",
-    )
+    parser.add_argument("--data-root", type=Path, default=Path(env_root) if env_root else None,
+                         help=f"Directory containing data_model_input.parquet. Defaults to ${DATA_ROOT_ENV_VAR} when defined.")
+    parser.add_argument("--input-path", type=Path, default=None,
+                         help="Direct path to data_model_input.parquet. Overrides --data-root.")
+    parser.add_argument("--metrics-dir", type=Path, default=ROOT / "results" / "metrics",
+                         help="Directory for CSV metric outputs.")
+    parser.add_argument("--exclusion-registry", type=Path, default=ROOT / "configs" / "station_exclusions.csv",
+                         help="Station adjudication registry. Stations with status 'review' or 'exclude' are model_eligible=False.")
+    parser.add_argument("--min-rows", type=int, default=DEFAULT_MIN_ROWS,
+                         help="Minimum number of valid observation/prediction pairs required to report metrics for a regime.")
+    parser.add_argument("--scale-ratio-threshold", type=float, default=5.0,
+                         help="NWM/observed scale-ratio threshold for anomaly screening.")
+    parser.add_argument("--scale-lower-quantile", type=float, default=0.05)
+    parser.add_argument("--scale-upper-quantile", type=float, default=0.95)
+    parser.add_argument("--fail-on-duplicate-site-date", action="store_true",
+                         help="Treat duplicate (station_id, datetime) rows as a fatal data-integrity error.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging.")
 
     args = parser.parse_args(argv)
 
     if args.min_rows < 2:
-        parser.error(
-            "--min-rows must be at least 2."
-        )
+        parser.error("--min-rows must be at least 2.")
+    if args.scale_ratio_threshold <= 1:
+        parser.error("--scale-ratio-threshold must be > 1.")
+    if not (0 <= args.scale_lower_quantile < args.scale_upper_quantile <= 1):
+        parser.error("--scale-lower-quantile and --scale-upper-quantile must satisfy 0 <= lower < upper <= 1.")
 
     return args
 
 
 def main() -> None:
     """CLI entry point."""
-
     args = parse_args()
 
     logging.basicConfig(
-        level=(
-            logging.DEBUG
-            if args.verbose
-            else logging.INFO
-        ),
-        format=(
-            "%(asctime)s "
-            "%(levelname)s "
-            "%(message)s"
-        ),
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
     )
 
     try:
-
-        input_path = resolve_input_path(
-            args.input_path,
-            args.data_root,
-        )
-
+        input_path = resolve_input_path(args.input_path, args.data_root)
         paths = Paths(
             input=input_path,
             metrics_dir=args.metrics_dir,
+            exclusion_registry=args.exclusion_registry,
         )
 
         run(
             paths,
             min_rows=args.min_rows,
-            fail_on_duplicate_site_date=(
-                args.fail_on_duplicate_site_date
-            ),
+            fail_on_duplicate_site_date=args.fail_on_duplicate_site_date,
+            scale_ratio_threshold=args.scale_ratio_threshold,
+            scale_lower_quantile=args.scale_lower_quantile,
+            scale_upper_quantile=args.scale_upper_quantile,
         )
 
-    except EvaluationError as exc:
+    except (EvaluationError, ScaleAuditError, RegistryError) as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc
 

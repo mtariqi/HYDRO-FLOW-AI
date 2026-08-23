@@ -1,0 +1,2 @@
+station_id,status,reason,evidence,decision_source
+10171000,review,Severe NWM-observed scale mismatch (Jordan River at 1700 South -- regulated Utah Lake outlet + extensive irrigation diversion; NWM min flow exceeds observed max flow with zero distributional overlap across 30 years),Scale anomaly screen + station audit,hydrologic_qc

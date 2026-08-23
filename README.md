@@ -848,26 +848,29 @@ Where upstream code, data-processing workflows, or methodological components are
 
 # Project status
 
-| Component                                | Status     |
-| ---------------------------------------- | ---------- |
-| Repository architecture                  | ✅ Complete |
-| Dataset reconstruction                   | ✅ Complete |
-| 5,740-row one-to-one date validation     | ✅ Complete |
-| Site/date duplicate validation           | ✅ Complete |
-| Temporal feature engineering             | 🚧 Next    |
-| Leakage-safe train/validation/test split | ⏳ Planned  |
-| Raw NWM benchmark                        | ⏳ Planned  |
-| XGBoost residual-correction baseline     | ⏳ Planned  |
-| Standard hydrologic metrics              | ⏳ Planned  |
-| Q95/Q99 extreme-event evaluation         | ⏳ Planned  |
-| Peak magnitude / timing evaluation       | ⏳ Planned  |
-| Quantile uncertainty estimation          | ⏳ Planned  |
-| Conformal calibration                    | ⏳ Planned  |
-| LSTM / Transformer modeling              | ⏳ Planned  |
-| River-network GNN                        | ⏳ Planned  |
-| Probabilistic extreme-event head         | ⏳ Planned  |
-| Model ablation study                     | ⏳ Planned  |
+# Project status
 
+| Component | Status |
+| --- | --- |
+| Repository architecture | ✅ Complete |
+| Dataset reconstruction | ✅ Complete |
+| 5,740-row one-to-one date validation | ✅ Complete |
+| Site/date duplicate validation | ✅ Complete |
+| Raw NWM baseline evaluation | ✅ Complete |
+| Station-specific Q95/Q99 evaluation | ✅ Complete |
+| Automated NWM scale-anomaly screening | ✅ Complete |
+| Scientific adjudication registry | ✅ Complete |
+| Station-level forensic audit utility | ✅ Complete |
+| QC test suite | ✅ Complete — 14 tests passing |
+| Multi-station collaborator dataset integration | ✅ Complete |
+| Feature provenance audit | ⏭️ Next |
+| Temporal feature engineering | ⏳ Planned |
+| Leakage-safe train/validation/test split | ⏳ Planned |
+| XGBoost residual correction baseline | ⏳ Planned |
+| Extreme-event evaluation | ⏳ Planned |
+| Uncertainty quantification | ⏳ Planned |
+| Temporal deep learning | 🔬 Research roadmap |
+| River-network GNN | 🔬 Research roadmap |
 ---
 
 # Technology stack

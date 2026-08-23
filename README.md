@@ -457,7 +457,8 @@ flowchart TD
 </p>
 ```
 ---
-```
+
+
 ## Stage 1 — Dataset reconstruction ✅
 
 The original ML export, `NWM_ML_Training_DF.csv`, retained hydrologic and environmental variables but removed `datetime` and `NWIS_site_id`.

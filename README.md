@@ -113,7 +113,7 @@ The current scale-anomaly screen flags five stations for review;
 stations requiring adjudication are blocked from pooled modeling
 until explicitly resolved through the station registry.
 ```
-
+```
 ---
 
 # Research pipeline

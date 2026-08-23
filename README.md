@@ -340,11 +340,15 @@ The original ML export, `NWM_ML_Training_DF.csv`, retained hydrologic and enviro
 ### Validated result
 
 ```text
-Original training rows : 5740
-Unique matched rows    : 5740
-Problem row IDs        : 0
-Missing dates          : 0
-Duplicate site/date    : 0
+- 296,161 daily station records
+- 30 USGS stations
+- Utah and Idaho
+- 1990-01-01 through 2020-09-30 overall
+- observed USGS discharge (`flow_cms`)
+- raw NWM discharge (`NWM_flow`)
+- precipitation and temperature
+- storage and snow-water equivalent
+- static basin and land-cover attributes
 ```
 
 Run:

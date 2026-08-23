@@ -456,8 +456,6 @@ flowchart TD
   🔴 Validation failure path
 </p>
 ```
----
-
 
 ## Stage 1 — Dataset reconstruction ✅
 
@@ -999,8 +997,6 @@ HYDRO-FLOW-AI is maintained as an independent research repository focused on:
 Where upstream code, data-processing workflows, or methodological components are reused or adapted, the original project should be appropriately acknowledged and cited.
 
 ---
-
-# Project status
 
 # Project status
 

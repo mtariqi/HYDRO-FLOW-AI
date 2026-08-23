@@ -19,15 +19,31 @@ This script reconstructs those fields by:
 The script refuses to write the final reconstructed dataset unless the
 mapping is strictly one-to-one.
 
-Usage
------
-python src/hydro_flow_ai/reconstruct_dataset.py
+The three upstream inputs (NWM_ML_Training_DF.csv, Climate.csv, flow.pkl)
+belong to the upstream NWM-ML project, not to this repository, and are
+intentionally excluded from version control here. They must be located
+explicitly, by one of:
 
-Optional overrides:
+    1. Environment variable (recommended for local dev):
+           export NWM_ML_DATA_ROOT=/path/to/NWM-ML
+           python src/hydro_flow_ai/reconstruct_dataset.py
+
+    2. CLI flag:
+           python src/hydro_flow_ai/reconstruct_dataset.py \
+               --data-root /path/to/NWM-ML
+
+    3. Per-file overrides (take precedence over --data-root / the env var):
+           python src/hydro_flow_ai/reconstruct_dataset.py \
+               --train-path /path/to/NWM-ML/Data/Processed/NWM_ML_Training_DF.csv \
+               --climate-path /path/to/NWM-ML/Data/Processed/Climate.csv \
+               --flow-path /path/to/NWM-ML/Data/Processed/flow.pkl
+
+Output and diagnostics paths are always local to THIS repository
+(data/derived/...) and are not affected by --data-root.
+
+Full example with every option:
 python src/hydro_flow_ai/reconstruct_dataset.py \
-    --train-path Data/Processed/NWM_ML_Training_DF.csv \
-    --climate-path Data/Processed/Climate.csv \
-    --flow-path Data/Processed/flow.pkl \
+    --data-root /path/to/NWM-ML \
     --output-path data/derived/nwm_ml_dated.csv \
     --diagnostics-path data/derived/reconstruction_diagnostics.csv \
     --site-atol 1e-4 \
@@ -39,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -77,17 +94,64 @@ SITE_COORDS: dict[str, tuple[float, float]] = {
     "10133600": (40.68803889, -111.5337194),
 }
 
+# Upstream NWM-ML data location. Not part of this repo -- see module
+# docstring for the three ways to point at it.
+DATA_ROOT_ENV_VAR = "NWM_ML_DATA_ROOT"
+
+# Known relative layout inside the upstream NWM-ML checkout.
+TRAIN_RELATIVE = "Data/Processed/NWM_ML_Training_DF.csv"
+CLIMATE_RELATIVE = "Data/Processed/Climate.csv"
+FLOW_RELATIVE = "Data/Processed/flow.pkl"
+
 
 @dataclass(frozen=True)
 class Paths:
-    """File locations used by the reconstruction pipeline."""
+    """File locations used by the reconstruction pipeline.
 
-    train: Path = ROOT / "Data/Processed/NWM_ML_Training_DF.csv"
-    climate: Path = ROOT / "Data/Processed/Climate.csv"
-    flow: Path = ROOT / "Data/Processed/flow.pkl"
+    `train`, `climate`, and `flow` point at the upstream NWM-ML data and
+    must be supplied explicitly by the caller (see `resolve_input_path`
+    and the module docstring) -- there is no same-repo default, because
+    that data does not live in this repository.
+
+    `output` and `diagnostics` are local to this repo and do have
+    sensible defaults.
+    """
+
+    train: Path
+    climate: Path
+    flow: Path
 
     output: Path = ROOT / "data/derived/nwm_ml_dated.csv"
     diagnostics: Path = ROOT / "data/derived/reconstruction_diagnostics.csv"
+
+
+def resolve_input_path(
+    explicit: Path | None,
+    data_root: Path | None,
+    relative: str,
+    flag: str,
+) -> Path:
+    """Resolve one upstream input path.
+
+    Precedence: an explicit --*-path flag wins outright; otherwise the
+    path is derived from --data-root / $NWM_ML_DATA_ROOT plus the
+    upstream repo's known relative layout. Raises SystemExit with a
+    clear, actionable message if neither is available -- this is a user
+    configuration error, not a data problem, so it should fail fast and
+    say exactly what to pass.
+    """
+    if explicit is not None:
+        return explicit
+
+    if data_root is not None:
+        return data_root / relative
+
+    raise SystemExit(
+        f"Could not locate the upstream file for --{flag}. Provide one of:\n"
+        f"  --{flag} PATH\n"
+        f"  --data-root PATH\n"
+        f"  export {DATA_ROOT_ENV_VAR}=PATH"
+    )
 
 
 class ReconstructionError(RuntimeError):
@@ -479,15 +543,36 @@ def run(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    defaults = Paths()
+    default_output = ROOT / "data/derived/nwm_ml_dated.csv"
+    default_diagnostics = ROOT / "data/derived/reconstruction_diagnostics.csv"
+    env_data_root = os.environ.get(DATA_ROOT_ENV_VAR)
 
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument("--train-path", type=Path, default=defaults.train)
-    parser.add_argument("--climate-path", type=Path, default=defaults.climate)
-    parser.add_argument("--flow-path", type=Path, default=defaults.flow)
-    parser.add_argument("--output-path", type=Path, default=defaults.output)
-    parser.add_argument("--diagnostics-path", type=Path, default=defaults.diagnostics)
+    parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=Path(env_data_root) if env_data_root else None,
+        help=(
+            "Root of the upstream NWM-ML checkout (the directory containing "
+            f"Data/Processed/...). Defaults to ${DATA_ROOT_ENV_VAR} if set. "
+            "Individual --*-path flags below override this per file."
+        ),
+    )
+    parser.add_argument(
+        "--train-path", type=Path, default=None,
+        help="Overrides --data-root for the training CSV.",
+    )
+    parser.add_argument(
+        "--climate-path", type=Path, default=None,
+        help="Overrides --data-root for Climate.csv.",
+    )
+    parser.add_argument(
+        "--flow-path", type=Path, default=None,
+        help="Overrides --data-root for flow.pkl.",
+    )
+    parser.add_argument("--output-path", type=Path, default=default_output)
+    parser.add_argument("--diagnostics-path", type=Path, default=default_diagnostics)
     parser.add_argument(
         "--site-atol",
         type=float,
@@ -518,9 +603,9 @@ def main() -> None:
     )
 
     paths = Paths(
-        train=args.train_path,
-        climate=args.climate_path,
-        flow=args.flow_path,
+        train=resolve_input_path(args.train_path, args.data_root, TRAIN_RELATIVE, "train-path"),
+        climate=resolve_input_path(args.climate_path, args.data_root, CLIMATE_RELATIVE, "climate-path"),
+        flow=resolve_input_path(args.flow_path, args.data_root, FLOW_RELATIVE, "flow-path"),
         output=args.output_path,
         diagnostics=args.diagnostics_path,
     )

@@ -132,7 +132,7 @@ scientifically adjudicated.
 flowchart TD
 
     %% =========================================================
-    %% 1. INPUT DATA
+    %% 1. HYDROLOGIC + ENVIRONMENTAL INPUTS
     %% =========================================================
     subgraph INPUTS["1 · Hydrologic and Environmental Inputs"]
         direction LR
@@ -146,7 +146,7 @@ flowchart TD
 
 
     %% =========================================================
-    %% 2. RECONSTRUCTION VALIDATION
+    %% 2. RECONSTRUCTION-VALIDATION COHORT
     %% =========================================================
     subgraph RECON["2 · Reconstruction-Validation Cohort · COMPLETE"]
         direction TB
@@ -169,17 +169,23 @@ flowchart TD
 
 
     %% =========================================================
-    %% 3. MULTI-STATION BASELINE + QC
+    %% 3. MULTI-STATION BASELINE + QUALITY CONTROL
     %% =========================================================
     subgraph QC["3 · Multi-Station Baseline + QC · COMPLETE"]
         direction TB
 
         Q1["Current research cohort<br/><b>296,161 station-days</b><br/><b>30 USGS stations</b><br/>Utah + Idaho"]
+
         Q2["Raw NWM baseline evaluation<br/>RMSE · MAE · Bias"]
+
         Q3["Station-specific high-flow diagnostics<br/>Q95 / Q99 RMSE"]
+
         Q4["Automated scale-anomaly screening<br/>range overlap + central overlap<br/>mean / median scale ratios"]
+
         Q5["Targeted forensic audit<br/>for suspicious stations"]
-        Q6["Scientific adjudication registry<br/>include · review · exclude"]
+
+        Q6["Station adjudication registry<br/>include · review · exclude"]
+
         Q7["Explicit model-eligible cohort<br/>flagged + unresolved → blocked"]
 
         Q1 --> Q2
@@ -193,15 +199,19 @@ flowchart TD
 
 
     %% =========================================================
-    %% 4. FEATURE PROVENANCE
+    %% 4. FEATURE PROVENANCE AUDIT
     %% =========================================================
     subgraph PROV["4 · Feature Provenance Audit · NEXT"]
         direction LR
 
-        P1["Audit ambiguous variables<br/>min · max · mean · median · s1 · s2"]
+        P1["Audit source variables with unclear provenance<br/>min · max · mean · median · s1 · s2"]
+
         P2["Check target leakage"]
+
         P3["Check temporal availability"]
+
         P4["Approve prediction-time features"]
+
         P5["Document provenance + exclusions"]
 
         P1 --> P2
@@ -219,11 +229,17 @@ flowchart TD
         direction LR
 
         C1["NWM flow lags<br/>Qt, Qt−1, Qt−3, Qt−7"]
+
         C2["Precipitation history<br/>Pt, P3d, P7d, P14d"]
+
         C3["Temperature history<br/>Tt, Tt−1, Tt−3, Tt−7"]
+
         C4["Hydrologic state features<br/>storage + SWE + lags"]
+
         C5["Cyclic seasonality<br/>sin(DOY), cos(DOY)"]
+
         C6["Static watershed context"]
+
         C7["Model-ready feature matrix"]
 
         C1 --> C7
@@ -236,13 +252,15 @@ flowchart TD
 
 
     %% =========================================================
-    %% 6. LEAKAGE-SAFE SPLIT
+    %% 6. LEAKAGE-SAFE TEMPORAL SPLIT
     %% =========================================================
     subgraph SPLIT["6 · Leakage-Safe Temporal Split"]
         direction LR
 
         D1["TRAIN<br/>earlier historical period"]
+
         D2["VALIDATION<br/>later period"]
+
         D3["HELD-OUT TEST<br/>final untouched period"]
 
         D1 -->|"fit preprocessing + model"| D2
@@ -251,15 +269,19 @@ flowchart TD
 
 
     %% =========================================================
-    %% 7. MODELING
+    %% 7. RESIDUAL-CORRECTION MODELING
     %% =========================================================
     subgraph MODEL["7 · Residual-Correction Modeling"]
         direction TB
 
         E1["Raw NWM reference"]
+
         E2["Residual target<br/><b>e_t = Qobs − QNWM</b>"]
+
         E3["XGBoost residual model"]
+
         E4["Predicted residual<br/><b>ê_t</b>"]
+
         E5["Corrected discharge<br/><b>Q̂corrected = QNWM + ê_t</b>"]
 
         E1 --> E2
@@ -277,24 +299,33 @@ flowchart TD
         direction LR
 
         F1["Average-flow metrics<br/>RMSE · MAE · Bias"]
+
         F2["Hydrologic efficiency<br/>NSE · KGE"]
+
         F3["High-flow performance<br/>Q95 / Q99 RMSE"]
+
         F4["Peak magnitude error"]
+
         F5["Peak timing error"]
+
         F6["Event detection<br/>POD · FAR · CSI"]
+
         F7["Raw NWM vs corrected model<br/>paired comparison"]
     end
 
 
     %% =========================================================
-    %% 9. UNCERTAINTY
+    %% 9. UNCERTAINTY QUANTIFICATION
     %% =========================================================
     subgraph UQ["9 · Uncertainty Quantification"]
         direction LR
 
         G1["Quantile regression"]
+
         G2["Prediction intervals"]
+
         G3["Conformal calibration"]
+
         G4["Threshold-exceedance probability<br/><b>P(Q > Qcritical)</b>"]
 
         G1 --> G2
@@ -304,16 +335,21 @@ flowchart TD
 
 
     %% =========================================================
-    %% 10. ADVANCED AI
+    %% 10. ADVANCED AI ROADMAP
     %% =========================================================
     subgraph ADV["10 · Advanced AI Roadmap"]
         direction LR
 
         H1["LSTM / GRU"]
+
         H2["Transformer / N-HiTS"]
+
         H3["Directed river-network GNN"]
+
         H4["Hybrid spatiotemporal model"]
+
         H5["Probabilistic extreme-event head"]
+
         H6["Ablation + model comparison"]
 
         H1 --> H4
@@ -327,6 +363,7 @@ flowchart TD
     %% =========================================================
     %% CROSS-STAGE CONNECTIONS
     %% =========================================================
+
     A1 --> B2
     A3 --> B2
 
@@ -339,6 +376,7 @@ flowchart TD
     B6 -. reconstruction validation .-> Q1
 
     Q7 --> P1
+
     P5 --> C1
     P5 --> C2
     P5 --> C3
@@ -354,12 +392,15 @@ flowchart TD
     D2 --> E3
     D3 --> E5
 
+    A1 -. observed target .-> E2
+
     E5 --> F1
     E5 --> F2
     E5 --> F3
     E5 --> F4
     E5 --> F5
     E5 --> F6
+
     E1 -. baseline comparison .-> F7
     E5 --> F7
 
@@ -373,13 +414,17 @@ flowchart TD
 
 
     %% =========================================================
-    %% STYLES
+    %% STYLING
     %% =========================================================
+
+    classDef input fill:#ede9fe,stroke:#7c3aed,color:#111827,font-weight:bold;
     classDef complete fill:#1b4332,stroke:#2d6a4f,color:#ffffff,font-weight:bold;
     classDef active fill:#023047,stroke:#219ebc,color:#ffffff,font-weight:bold;
     classDef next fill:#7c2d12,stroke:#ea580c,color:#ffffff,font-weight:bold;
     classDef planned fill:#3c3744,stroke:#7a7788,color:#ffffff,font-weight:bold;
     classDef failure fill:#7f1d1d,stroke:#b91c1c,color:#ffffff,font-weight:bold;
+
+    class A1,A2,A3,A4,A5 input;
 
     class B1,B2,B3,B4,B5,B6 complete;
     class B7 failure;
@@ -395,12 +440,12 @@ flowchart TD
 
     class G1,G2,G3,G4 planned;
     class H1,H2,H3,H4,H5,H6 planned;
-
+```
 **Legend:**
 🟢 complete and validated · 🔵 near-term implementation · ⚫ longer-term roadmap · 🔴 validation failure path
 ```
 ---
-
+```
 ## Stage 1 — Dataset reconstruction ✅
 
 The original ML export, `NWM_ML_Training_DF.csv`, retained hydrologic and environmental variables but removed `datetime` and `NWIS_site_id`.

@@ -441,8 +441,20 @@ flowchart TD
     class G1,G2,G3,G4 planned;
     class H1,H2,H3,H4,H5,H6 planned;
 ```
-**Legend:**
-🟢 complete and validated · 🔵 near-term implementation · ⚫ longer-term roadmap · 🔴 validation failure path
+<p align="center">
+  <strong>Legend:</strong>
+  🟣 Hydrologic / environmental inputs
+  &nbsp;·&nbsp;
+  🟢 Complete and validated
+  &nbsp;·&nbsp;
+  🟠 Next — feature provenance audit
+  &nbsp;·&nbsp;
+  🔵 Near-term implementation
+  &nbsp;·&nbsp;
+  ⚫ Longer-term research roadmap
+  &nbsp;·&nbsp;
+  🔴 Validation failure path
+</p>
 ```
 ---
 ```

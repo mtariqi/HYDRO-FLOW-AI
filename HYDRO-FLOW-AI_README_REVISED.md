@@ -55,6 +55,8 @@ The platform separates four concerns:
 > streamflow estimates while preserving temporal validity, hydrological
 > interpretability, event-detection performance, and reproducibility?
 
+<img width="1683" height="721" alt="image" src="https://github.com/user-attachments/assets/94779090-a924-4b99-890b-b1f55f5771db" />
+
 ## Capability status
 
 | Component | Status | Notes |

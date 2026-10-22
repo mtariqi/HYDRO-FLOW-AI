@@ -1,0 +1,23 @@
+entities:
+  Gauge:
+    key: station_id
+    attributes: [name, latitude, longitude, drainage_area, regulation_status]
+  Reach:
+    key: nwm_feature_id
+    attributes: [stream_order, travel_time]
+  Catchment:
+    key: catchment_id
+    attributes: [climate_region, area, slope, land_cover]
+  Dataset:
+    key: dataset_version
+    attributes: [source, temporal_range, forecast_vintage, checksum]
+  ModelRun:
+    key: run_id
+    attributes: [git_commit, config_hash, created_at]
+  Metric:
+    key: metric_id
+    attributes: [name, value, split, horizon, regime]
+  Evidence:
+    key: evidence_id
+    attributes: [title, source, page, checksum]
+

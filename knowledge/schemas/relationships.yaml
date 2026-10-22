@@ -1,0 +1,11 @@
+relationships:
+  - [Gauge, LOCATED_IN, Catchment]
+  - [Gauge, MAPPED_TO, Reach]
+  - [Reach, UPSTREAM_OF, Reach]
+  - [Reservoir, REGULATES, Gauge]
+  - [ModelRun, TRAINED_ON, Dataset]
+  - [ModelRun, EVALUATED_AT, Gauge]
+  - [ModelRun, PRODUCED, Metric]
+  - [Evidence, SUPPORTS, ModellingDecision]
+  - [Figure, VISUALIZES, ModelRun]
+

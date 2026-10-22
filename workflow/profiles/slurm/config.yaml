@@ -1,0 +1,11 @@
+executor: slurm
+jobs: 20
+printshellcmds: true
+rerun-incomplete: true
+latency-wait: 60
+default-resources:
+  - mem_mb=2048
+  - runtime=30
+  - slurm_account=CHANGE_ME
+  - slurm_partition=CHANGE_ME
+

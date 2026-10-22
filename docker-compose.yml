@@ -1,0 +1,10 @@
+services:
+  hydroflow-api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    environment:
+      HYDROFLOW_ARTIFACTS: /app/artifacts
+

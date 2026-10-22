@@ -1,0 +1,1074 @@
+<p align="center">
+  <img src="docs/assets/HYDRO-FLOW-AI-banner.png" alt="HYDRO-FLOW-AI banner" width="100%">
+</p>
+
+<h1 align="center">HYDRO-FLOW-AI</h1>
+
+<p align="center">
+  <strong>
+    Extreme-aware AI for streamflow prediction, National Water Model bias correction,
+    uncertainty quantification, and flood-event detection.
+  </strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI">
+    <img src="https://img.shields.io/badge/GitHub-mtariqi%2FHYDRO--FLOW--AI-181717?logo=github" alt="GitHub repository">
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/status-active%20research-2ea44f" alt="Active research">
+  <img src="https://img.shields.io/badge/domain-hydrology-0077B6" alt="Hydrology">
+  <img src="https://img.shields.io/badge/focus-extreme%20streamflow-D1495B" alt="Extreme streamflow">
+  <img src="https://img.shields.io/badge/baseline-XGBoost-EB5E28" alt="XGBoost baseline">
+</p>
+
+<p align="center">
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/stargazers">
+    <img src="https://img.shields.io/github/stars/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub stars">
+  </a>
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/network/members">
+    <img src="https://img.shields.io/github/forks/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub forks">
+  </a>
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/issues">
+    <img src="https://img.shields.io/github/issues/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub issues">
+  </a>
+  <img src="https://img.shields.io/github/last-commit/mtariqi/HYDRO-FLOW-AI?style=flat&logo=git" alt="Last commit">
+  <img src="https://img.shields.io/badge/reproducibility-priority-6f42c1" alt="Reproducibility priority">
+  <img src="https://img.shields.io/badge/data-USGS%20%2B%20Climate%20%2B%20NWM-0A9396" alt="Data sources">
+</p>
+
+---
+
+## Why HYDRO-FLOW-AI?
+
+National Water Model (NWM) forecasts provide an important hydrologic baseline, but local forecast errors can become substantial at individual gauges. Those errors are particularly important during high-flow and flood-related conditions, when underprediction or mistimed peaks can reduce the usefulness of operational forecasts.
+
+HYDRO-FLOW-AI treats NWM bias correction as more than a conventional regression problem. The framework is designed to:
+
+* preserve the NWM prediction as a physical/model baseline;
+* learn systematic residual error from hydrometeorological context;
+* represent antecedent rainfall, temperature, seasonality, and watershed characteristics;
+* avoid temporal leakage during training and validation;
+* evaluate high-flow behavior separately from average-flow performance;
+* quantify predictive uncertainty;
+* support future temporal deep learning and river-network graph learning.
+
+The central research question is:
+
+> **Can extreme-aware, temporally informed AI improve NWM streamflow predictions without sacrificing reproducibility, hydrologic interpretability, or out-of-sample validity?**
+
+<img width="1209" height="965" alt="image" src="https://github.com/user-attachments/assets/f9cc14f1-50a6-4d68-99c5-8be7456d8f0b" />
+
+## Study sites
+
+The current validated reconstruction uses two USGS gauges in Utah.
+
+| NWIS Site ID | Station                                 |    Latitude |    Longitude |
+| ------------ | --------------------------------------- | ----------: | -----------: |
+| `10133800`   | East Canyon Creek near Jeremy Ranch, UT | 40.75966979 | -111.5640912 |
+| `10133600`   | McLeod Creek near Park City, UT         | 40.68803889 | -111.5337194 |
+
+### Current modeling record
+
+The reconstructed machine-learning dataset spans **2012–2019 at daily resolution**.
+
+The current workflow combines:
+
+* observed USGS streamflow;
+* NWM streamflow;
+* temperature;
+* precipitation;
+* drainage area;
+* basin elevation;
+* forest/developed/impervious/herbaceous cover;
+* steep-slope fraction;
+* mean annual precipitation;
+* seasonal timing information.
+
+### Dataset scopes
+
+HYDRO-FLOW-AI currently uses two complementary dataset scopes.
+
+**Validated reconstruction dataset**
+- 5,740 daily observations
+- 2 USGS gauges
+- 2012–2019
+- one-to-one date reconstruction independently validated
+- used to establish the reproducible temporal modeling workflow
+
+**Multi-station NWM evaluation dataset**
+- 296,161 station-day observations
+- 30 USGS stations
+- approximately 1990–2020, depending on station availability
+- used for raw NWM baseline evaluation, high-flow diagnostics,
+  scale-anomaly screening, and station eligibility assessment
+
+The multi-station QC workflow currently identifies 5 stations requiring
+review before pooled machine-learning experiments. Stations flagged by
+the automated screen are not assumed to be erroneous; they are withheld
+from pooled modeling until their NWM–USGS relationship has been
+scientifically adjudicated.
+
+
+# Research pipeline
+```mermaid text
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontSize": "22px",
+    "fontFamily": "Arial, Helvetica, sans-serif",
+    "primaryTextColor": "#111827",
+    "lineColor": "#475569"
+  },
+  "flowchart": {
+    "htmlLabels": true,
+    "nodeSpacing": 65,
+    "rankSpacing": 75,
+    "curve": "basis"
+  }
+}}%%
+
+flowchart TD
+
+    %% =========================================================
+    %% 1. HYDROLOGIC + ENVIRONMENTAL INPUTS
+    %% =========================================================
+    subgraph INPUTS["1 · Hydrologic and Environmental Inputs"]
+        direction LR
+
+        A1["USGS observed streamflow<br/><b>flow_cms</b>"]
+        A2["NWM streamflow<br/><b>NWM_flow</b>"]
+        A3["Climate forcing<br/>precipitation + temperature"]
+        A4["Hydrologic state<br/>storage + SWE"]
+        A5["Basin / site attributes<br/>area, elevation, slope,<br/>land cover, coordinates"]
+    end
+
+
+    %% =========================================================
+    %% 2. RECONSTRUCTION-VALIDATION COHORT
+    %% =========================================================
+    subgraph RECON["2 · Reconstruction-Validation Cohort · COMPLETE"]
+        direction TB
+
+        B1["Map retained coordinates<br/>to NWIS site ID"]
+        B2["Build dated reference table<br/>Climate + USGS flow"]
+        B3["Restrict candidate dates<br/>site + day-of-year"]
+        B4["Tolerance-based matching<br/>temperature + precipitation + flow"]
+        B5{"Exactly one date<br/>per training row?"}
+        B6["Validated reconstruction<br/><b>5,740 / 5,740 rows</b><br/>2 Utah gauges"]
+        B7["Diagnostics + ReconstructionError<br/>output withheld"]
+
+        B1 --> B3
+        B2 --> B3
+        B3 --> B4
+        B4 --> B5
+        B5 -->|"PASS"| B6
+        B5 -->|"FAIL"| B7
+    end
+
+
+    %% =========================================================
+    %% 3. MULTI-STATION BASELINE + QUALITY CONTROL
+    %% =========================================================
+    subgraph QC["3 · Multi-Station Baseline + QC · COMPLETE"]
+        direction TB
+
+        Q1["Current research cohort<br/><b>296,161 station-days</b><br/><b>30 USGS stations</b><br/>Utah + Idaho"]
+
+        Q2["Raw NWM baseline evaluation<br/>RMSE · MAE · Bias"]
+
+        Q3["Station-specific high-flow diagnostics<br/>Q95 / Q99 RMSE"]
+
+        Q4["Automated scale-anomaly screening<br/>range overlap + central overlap<br/>mean / median scale ratios"]
+
+        Q5["Targeted forensic audit<br/>for suspicious stations"]
+
+        Q6["Station adjudication registry<br/>include · review · exclude"]
+
+        Q7["Explicit model-eligible cohort<br/>flagged + unresolved → blocked"]
+
+        Q1 --> Q2
+        Q2 --> Q3
+        Q3 --> Q4
+        Q4 --> Q5
+        Q4 --> Q6
+        Q5 --> Q6
+        Q6 --> Q7
+    end
+
+
+    %% =========================================================
+    %% 4. FEATURE PROVENANCE AUDIT
+    %% =========================================================
+    subgraph PROV["4 · Feature Provenance Audit · NEXT"]
+        direction LR
+
+        P1["Audit source variables with unclear provenance<br/>min · max · mean · median · s1 · s2"]
+
+        P2["Check target leakage"]
+
+        P3["Check temporal availability"]
+
+        P4["Approve prediction-time features"]
+
+        P5["Document provenance + exclusions"]
+
+        P1 --> P2
+        P1 --> P3
+        P2 --> P4
+        P3 --> P4
+        P4 --> P5
+    end
+
+
+    %% =========================================================
+    %% 5. TEMPORAL FEATURE ENGINEERING
+    %% =========================================================
+    subgraph FEATURES["5 · Temporal Feature Engineering"]
+        direction LR
+
+        C1["NWM flow lags<br/>Qt, Qt−1, Qt−3, Qt−7"]
+
+        C2["Precipitation history<br/>Pt, P3d, P7d, P14d"]
+
+        C3["Temperature history<br/>Tt, Tt−1, Tt−3, Tt−7"]
+
+        C4["Hydrologic state features<br/>storage + SWE + lags"]
+
+        C5["Cyclic seasonality<br/>sin(DOY), cos(DOY)"]
+
+        C6["Static watershed context"]
+
+        C7["Model-ready feature matrix"]
+
+        C1 --> C7
+        C2 --> C7
+        C3 --> C7
+        C4 --> C7
+        C5 --> C7
+        C6 --> C7
+    end
+
+
+    %% =========================================================
+    %% 6. LEAKAGE-SAFE TEMPORAL SPLIT
+    %% =========================================================
+    subgraph SPLIT["6 · Leakage-Safe Temporal Split"]
+        direction LR
+
+        D1["TRAIN<br/>earlier historical period"]
+
+        D2["VALIDATION<br/>later period"]
+
+        D3["HELD-OUT TEST<br/>final untouched period"]
+
+        D1 -->|"fit preprocessing + model"| D2
+        D2 -->|"model selection / tuning"| D3
+    end
+
+
+    %% =========================================================
+    %% 7. RESIDUAL-CORRECTION MODELING
+    %% =========================================================
+    subgraph MODEL["7 · Residual-Correction Modeling"]
+        direction TB
+
+        E1["Raw NWM reference"]
+
+        E2["Residual target<br/><b>e_t = Qobs − QNWM</b>"]
+
+        E3["XGBoost residual model"]
+
+        E4["Predicted residual<br/><b>ê_t</b>"]
+
+        E5["Corrected discharge<br/><b>Q̂corrected = QNWM + ê_t</b>"]
+
+        E1 --> E2
+        E2 --> E3
+        E3 --> E4
+        E1 --> E5
+        E4 --> E5
+    end
+
+
+    %% =========================================================
+    %% 8. EXTREME-AWARE EVALUATION
+    %% =========================================================
+    subgraph EVAL["8 · Extreme-Aware Evaluation"]
+        direction LR
+
+        F1["Average-flow metrics<br/>RMSE · MAE · Bias"]
+
+        F2["Hydrologic efficiency<br/>NSE · KGE"]
+
+        F3["High-flow performance<br/>Q95 / Q99 RMSE"]
+
+        F4["Peak magnitude error"]
+
+        F5["Peak timing error"]
+
+        F6["Event detection<br/>POD · FAR · CSI"]
+
+        F7["Raw NWM vs corrected model<br/>paired comparison"]
+    end
+
+
+    %% =========================================================
+    %% 9. UNCERTAINTY QUANTIFICATION
+    %% =========================================================
+    subgraph UQ["9 · Uncertainty Quantification"]
+        direction LR
+
+        G1["Quantile regression"]
+
+        G2["Prediction intervals"]
+
+        G3["Conformal calibration"]
+
+        G4["Threshold-exceedance probability<br/><b>P(Q > Qcritical)</b>"]
+
+        G1 --> G2
+        G2 --> G3
+        G3 --> G4
+    end
+
+
+    %% =========================================================
+    %% 10. ADVANCED AI ROADMAP
+    %% =========================================================
+    subgraph ADV["10 · Advanced AI Roadmap"]
+        direction LR
+
+        H1["LSTM / GRU"]
+
+        H2["Transformer / N-HiTS"]
+
+        H3["Directed river-network GNN"]
+
+        H4["Hybrid spatiotemporal model"]
+
+        H5["Probabilistic extreme-event head"]
+
+        H6["Ablation + model comparison"]
+
+        H1 --> H4
+        H2 --> H4
+        H3 --> H4
+        H4 --> H5
+        H5 --> H6
+    end
+
+
+    %% =========================================================
+    %% CROSS-STAGE CONNECTIONS
+    %% =========================================================
+
+    A1 --> B2
+    A3 --> B2
+
+    A1 --> Q1
+    A2 --> Q1
+    A3 --> Q1
+    A4 --> Q1
+    A5 --> Q1
+
+    B6 -. reconstruction validation .-> Q1
+
+    Q7 --> P1
+
+    P5 --> C1
+    P5 --> C2
+    P5 --> C3
+    P5 --> C4
+    P5 --> C5
+    P5 --> C6
+
+    C7 --> D1
+    C7 --> D2
+    C7 --> D3
+
+    D1 --> E3
+    D2 --> E3
+    D3 --> E5
+
+    A1 -. observed target .-> E2
+
+    E5 --> F1
+    E5 --> F2
+    E5 --> F3
+    E5 --> F4
+    E5 --> F5
+    E5 --> F6
+
+    E1 -. baseline comparison .-> F7
+    E5 --> F7
+
+    F3 --> G1
+    F4 --> G1
+    F6 --> G4
+
+    G3 --> H1
+    G3 --> H2
+    G3 --> H3
+
+
+    %% =========================================================
+    %% STYLING
+    %% =========================================================
+
+    classDef input fill:#ede9fe,stroke:#7c3aed,color:#111827,font-weight:bold;
+    classDef complete fill:#1b4332,stroke:#2d6a4f,color:#ffffff,font-weight:bold;
+    classDef active fill:#023047,stroke:#219ebc,color:#ffffff,font-weight:bold;
+    classDef next fill:#7c2d12,stroke:#ea580c,color:#ffffff,font-weight:bold;
+    classDef planned fill:#3c3744,stroke:#7a7788,color:#ffffff,font-weight:bold;
+    classDef failure fill:#7f1d1d,stroke:#b91c1c,color:#ffffff,font-weight:bold;
+
+    class A1,A2,A3,A4,A5 input;
+
+    class B1,B2,B3,B4,B5,B6 complete;
+    class B7 failure;
+
+    class Q1,Q2,Q3,Q4,Q5,Q6,Q7 complete;
+
+    class P1,P2,P3,P4,P5 next;
+
+    class C1,C2,C3,C4,C5,C6,C7 active;
+    class D1,D2,D3 active;
+    class E1,E2,E3,E4,E5 active;
+    class F1,F2,F3,F4,F5,F6,F7 active;
+
+    class G1,G2,G3,G4 planned;
+    class H1,H2,H3,H4,H5,H6 planned;
+```
+<p align="center">
+  <strong>Legend:</strong>
+  🟣 Hydrologic / environmental inputs
+  &nbsp;·&nbsp;
+  🟢 Complete and validated
+  &nbsp;·&nbsp;
+  🟠 Next — feature provenance audit
+  &nbsp;·&nbsp;
+  🔵 Near-term implementation
+  &nbsp;·&nbsp;
+  ⚫ Longer-term research roadmap
+  &nbsp;·&nbsp;
+  🔴 Validation failure path
+</p>
+```
+
+## Stage 1 — Dataset reconstruction ✅
+
+The original ML export, `NWM_ML_Training_DF.csv`, retained hydrologic and environmental variables but removed `datetime` and `NWIS_site_id`.
+
+`src/hydro_flow_ai/reconstruct_dataset.py` restores those fields reproducibly.
+
+### Reconstruction logic
+
+1. Assign each training row to an NWIS gauge using retained latitude/longitude.
+2. Reconstruct a dated reference table from:
+
+   * `Climate.csv`
+   * observed USGS streamflow in `flow.pkl`
+3. Restrict candidate dates to the same:
+
+   * NWIS site;
+   * day-of-year.
+4. Match:
+
+   * temperature;
+   * precipitation;
+   * observed streamflow.
+5. Use an absolute numeric tolerance:
+
+```text
+--match-atol 1e-5
+```
+
+6. Require exactly **one** valid date for every original training row.
+7. Reject zero-match or multi-match cases instead of silently guessing.
+8. Validate uniqueness of `(NWIS_site_id, datetime)`.
+
+### Validated result
+
+```text
+- 296,161 daily station records
+- 30 USGS stations
+- Utah and Idaho
+- 1990-01-01 through 2020-09-30 overall
+- observed USGS discharge (`flow_cms`)
+- raw NWM discharge (`NWM_flow`)
+- precipitation and temperature
+- storage and snow-water equivalent
+- static basin and land-cover attributes
+```
+
+Run:
+
+```fish
+python src/hydro_flow_ai/reconstruct_dataset.py
+```
+
+---
+
+## Stage 2 — Temporal feature engineering 🚧
+
+The next stage converts the dated dataset into a leakage-safe temporal feature matrix.
+
+### NWM flow features
+
+```text
+NWM_flow_t
+NWM_flow_lag1
+NWM_flow_lag3
+NWM_flow_lag7
+```
+
+### Antecedent precipitation
+
+```text
+precip_1d
+precip_3d
+precip_7d
+precip_14d
+```
+
+The multi-day precipitation features are intended to represent antecedent watershed forcing rather than only same-day rainfall.
+
+### Temperature features
+
+```text
+temperature_t
+temperature_lag1
+temperature_lag3
+temperature_lag7
+```
+
+### Seasonal encoding
+
+Day-of-year is represented cyclically:
+
+[
+DOY_{\sin} =
+\sin\left(\frac{2\pi,DOY}{365.25}\right)
+]
+
+[
+DOY_{\cos} =
+\cos\left(\frac{2\pi,DOY}{365.25}\right)
+]
+
+### Static watershed features
+
+Current variables include:
+
+* drainage area;
+* mean basin elevation;
+* percentage forest cover;
+* percentage developed land;
+* percentage impervious surface;
+* percentage herbaceous cover;
+* percentage steep slope;
+* mean annual precipitation.
+
+---
+
+## Leakage-safe experiment design
+
+A random split is intentionally avoided because adjacent daily observations are temporally autocorrelated.
+
+```mermaid
+flowchart LR
+
+    A["2012–2017<br/><b>TRAIN</b>"]
+    B["2018<br/><b>VALIDATION</b>"]
+    C["2019<br/><b>HELD-OUT TEST</b>"]
+    D["Final research metrics"]
+
+    A -->|"fit preprocessing + model"| B
+    B -->|"model selection / tuning"| C
+    C -->|"final evaluation only"| D
+
+    style A fill:#dcfce7,stroke:#16a34a
+    style B fill:#fef3c7,stroke:#d97706
+    style C fill:#fee2e2,stroke:#dc2626
+    style D fill:#dbeafe,stroke:#2563eb
+```
+
+This design protects the final reported performance from temporal leakage and repeated access to the test period.
+
+---
+
+## Stage 3 — Residual-correction baseline
+
+The initial machine-learning baseline is **XGBoost residual correction**.
+
+The target is:
+
+[
+e_t =
+Q^{obs}_t - Q^{NWM}_t
+]
+
+The model learns:
+
+[
+\hat e_t = f_{\theta}(X_t)
+]
+
+The corrected prediction becomes:
+
+[
+\hat Q^{corrected}_t =
+Q^{NWM}_t + \hat e_t
+]
+
+This preserves the NWM prediction as the reference hydrologic estimate while allowing ML to learn systematic local error.
+
+---
+
+# Extreme-aware evaluation
+
+Average performance alone can conceal severe errors during rare high-flow events.
+
+HYDRO-FLOW-AI therefore separates conventional metrics from extreme-flow metrics.
+
+## Standard metrics
+
+| Metric | Purpose                                                |
+| ------ | ------------------------------------------------------ |
+| RMSE   | penalizes large prediction errors                      |
+| MAE    | average absolute prediction error                      |
+| Bias   | systematic over- or underprediction                    |
+| NSE    | hydrologic predictive efficiency                       |
+| KGE    | combined correlation, variability, and bias assessment |
+
+## Extreme-focused metrics
+
+| Metric               | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| Q95 RMSE             | error above the 95th-percentile flow threshold |
+| Q99 RMSE             | error in the most extreme tail                 |
+| Peak magnitude error | accuracy of maximum discharge                  |
+| Peak timing error    | timing displacement of observed peaks          |
+| POD                  | probability of detection                       |
+| FAR                  | false-alarm ratio                              |
+| CSI                  | critical success index                         |
+| Precision / Recall   | class-imbalance-aware event detection          |
+
+---
+
+# Uncertainty quantification
+
+Future deterministic predictions will be extended with uncertainty-aware outputs.
+
+Planned methods include:
+
+* quantile regression;
+* calibrated prediction intervals;
+* conformal prediction;
+* interval coverage;
+* interval sharpness;
+* reliability analysis;
+* probability of threshold exceedance.
+
+The eventual extreme-event prediction target is:
+
+[
+P(Q_{t+h} > Q_{critical})
+]
+
+rather than only a single deterministic discharge value.
+
+---
+
+# Advanced AI roadmap
+
+```mermaid
+flowchart TD
+
+    A["Extreme-aware XGBoost<br/>residual baseline"]
+    B["LSTM / GRU<br/>temporal sequence model"]
+    C["Transformer / N-HiTS<br/>multi-scale temporal model"]
+    D["Directed river-network GNN<br/>upstream → downstream"]
+    E["Hybrid spatiotemporal architecture"]
+    F["Probabilistic extreme-event head"]
+    G["Uncertainty calibration"]
+    H["Ablation study"]
+    I["Final model comparison"]
+
+    A --> B
+    A --> C
+
+    B --> E
+    C --> E
+    D --> E
+
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+
+    style A fill:#fff7ed,stroke:#ea580c
+    style B fill:#eff6ff,stroke:#2563eb
+    style C fill:#eff6ff,stroke:#2563eb
+    style D fill:#f5f3ff,stroke:#7c3aed
+    style E fill:#ecfdf5,stroke:#059669
+    style F fill:#fff1f2,stroke:#e11d48
+    style G fill:#f0fdfa,stroke:#0f766e
+    style H fill:#f8fafc,stroke:#475569
+    style I fill:#f8fafc,stroke:#334155
+```
+
+---
+
+# Repository structure
+```text
+HYDRO-FLOW-AI/
+├── README.md
+├── LICENSE
+├── pyproject.toml
+├── requirements.txt
+├── .gitignore
+├── .pre-commit-config.yaml
+│
+├── configs/
+│   ├── data.yaml
+│   ├── features.yaml
+│   ├── baseline_xgb.yaml
+│   ├── extremes.yaml
+│   └── uncertainty.yaml
+│
+├── data/
+│   ├── raw/
+│   │   └── .gitkeep
+│   ├── interim/
+│   │   └── .gitkeep
+│   ├── processed/
+│   │   └── .gitkeep
+│   └── derived/
+│       └── .gitkeep
+│
+├── docs/
+│   ├── methodology.md
+│   ├── data_dictionary.md
+│   ├── reproducibility.md
+│   └── assets/
+│       └── HYDRO-FLOW-AI-banner.png
+│
+├── notebooks/
+│   ├── 01_data_audit.ipynb
+│   ├── 02_extreme_flow_analysis.ipynb
+│   ├── 03_feature_diagnostics.ipynb
+│   └── 04_model_comparison.ipynb
+│
+├── models/
+│   └── .gitkeep
+│
+├── results/
+│   ├── figures/
+│   │   └── .gitkeep
+│   ├── metrics/
+│   │   └── .gitkeep
+│   └── tables/
+│       └── .gitkeep
+│
+├── src/
+│   └── hydro_flow_ai/
+│       ├── __init__.py
+│       │
+│       ├── data/
+│       │   ├── __init__.py
+│       │   ├── reconstruct_dataset.py
+│       │   ├── validate.py
+│       │   └── io.py
+│       │
+│       ├── features/
+│       │   ├── __init__.py
+│       │   ├── temporal.py
+│       │   ├── precipitation.py
+│       │   ├── seasonality.py
+│       │   └── build_features.py
+│       │
+│       ├── modeling/
+│       │   ├── __init__.py
+│       │   ├── baseline.py
+│       │   ├── xgboost_model.py
+│       │   ├── train.py
+│       │   └── predict.py
+│       │
+│       ├── evaluation/
+│       │   ├── __init__.py
+│       │   ├── metrics.py
+│       │   ├── extremes.py
+│       │   ├── peaks.py
+│       │   └── evaluate.py
+│       │
+│       ├── uncertainty/
+│       │   ├── __init__.py
+│       │   ├── quantiles.py
+│       │   └── conformal.py
+│       │
+│       ├── advanced/
+│       │   ├── __init__.py
+│       │   ├── lstm.py
+│       │   ├── transformer.py
+│       │   └── river_gnn.py
+│       │
+│       ├── split.py
+│       └── utils.py
+│
+├── tests/
+│   ├── test_reconstruction.py
+│   ├── test_features.py
+│   ├── test_split.py
+│   ├── test_metrics.py
+│   └── test_extremes.py
+│
+└── .github/
+    └── workflows/
+        └── ci.yml
+```
+```text
+Google Drive — collaborative/source data
+        │
+        ├── NWM data
+        ├── USGS streamflow
+        ├── climate data
+        ├── site/basin data
+        └── collaborator-provided datasets
+                │
+                ▼
+Local HYDRO-FLOW-AI/data/
+        │
+        ├── raw/          ← downloaded source data
+        ├── interim/      ← intermediate transformations
+        ├── processed/    ← cleaned datasets
+        └── derived/      ← ML-ready datasets
+                │
+                ▼
+GitHub — code + documentation only
+```
+# Data Sources
+
+HYDRO-FLOW-AI integrates hydrologic, meteorological, and watershed
+information from multiple sources.
+
+## Data provenance
+
+| Source | Data | Role |
+|---|---|---|
+| USGS NWIS | Observed streamflow | Ground-truth discharge |
+| National Water Model (NWM) | Simulated streamflow | Baseline/model input |
+| Climate forcing | Temperature and precipitation | Meteorological predictors |
+| Basin/site attributes | Watershed characteristics | Static predictors |
+| Collaborative research data | Project-specific hydrologic datasets | Model development and validation |
+
+## Collaborative data
+
+Additional project datasets are maintained in a shared Google Drive
+workspace used by the research collaborators.
+
+These source datasets are intentionally excluded from the public GitHub
+repository. The repository contains the processing, reconstruction,
+feature-engineering, modeling, and evaluation code required for the
+HYDRO-FLOW-AI workflow.
+
+## Current study sites
+
+- USGS NWIS 10133800
+- USGS NWIS 10133600
+
+Study period: 2012–2019.
+---
+
+# Quick start
+
+## 1. Clone the repository
+
+```bash
+git clone https://github.com/mtariqi/HYDRO-FLOW-AI.git
+cd HYDRO-FLOW-AI
+```
+
+## 2. Create a virtual environment
+
+### Bash / Zsh
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### Fish
+
+```fish
+python3 -m venv .venv
+source .venv/bin/activate.fish
+```
+
+## 3. Install dependencies
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+## 4. Add source data locally
+
+Large source and derived datasets are intentionally excluded from Git.
+
+Place or link the required input files according to the local project configuration before running the reconstruction pipeline.
+
+## 5. Run dataset reconstruction
+
+```bash
+python src/hydro_flow_ai/reconstruct_dataset.py
+```
+
+Expected validation:
+
+```text
+Original training rows : 5740
+Unique matched rows    : 5740
+Problem row IDs        : 0
+```
+
+---
+
+# Reproducibility principles
+
+HYDRO-FLOW-AI follows several methodological constraints:
+
+* no random temporal split for the primary experiment;
+* no future information in predictor construction;
+* an untouched final test period;
+* standard and extreme-flow metrics reported separately;
+* failed reconstruction is explicit rather than silently corrected;
+* derived datasets are reproducibly generated;
+* large data and model artifacts remain outside source control;
+* raw NWM performance is retained as a comparison baseline;
+* feature and architecture additions are evaluated using ablation studies;
+* uncertainty calibration is treated separately from point-prediction accuracy.
+
+---
+
+# Data management
+
+Large hydrologic inputs and derived datasets are not stored directly in the GitHub repository.
+
+The repository tracks:
+
+* source code;
+* configuration;
+* documentation;
+* reproducible processing logic;
+* tests;
+* lightweight research outputs.
+
+Data directories are retained structurally with `.gitkeep` files while substantive datasets remain gitignored.
+
+---
+
+# Collaborator
+
+**Mohammad Shahabul Alam, PhD**
+Assistant Professor, University of West Florida
+
+* GitHub: [shahab122](https://github.com/shahab122)
+* LinkedIn: [Mohammad Shahabul Alam](https://www.linkedin.com/in/md-shahabul-alam/)
+
+---
+
+# Upstream reference
+
+This project extends ideas and data-processing workflows from the Alabama Water Institute **NWM-ML** project.
+
+HYDRO-FLOW-AI is maintained as an independent research repository focused on:
+
+* extreme-flow NWM bias correction;
+* leakage-safe temporal modeling;
+* extreme-event evaluation;
+* uncertainty quantification;
+* probabilistic threshold prediction;
+* temporal deep learning;
+* future river-network graph learning.
+
+Where upstream code, data-processing workflows, or methodological components are reused or adapted, the original project should be appropriately acknowledged and cited.
+
+---
+
+# Project status
+
+| Component | Status |
+| --- | --- |
+| Repository architecture | ✅ Complete |
+| Dataset reconstruction | ✅ Complete |
+| 5,740-row one-to-one date validation | ✅ Complete |
+| Site/date duplicate validation | ✅ Complete |
+| Raw NWM baseline evaluation | ✅ Complete |
+| Station-specific Q95/Q99 evaluation | ✅ Complete |
+| Automated NWM scale-anomaly screening | ✅ Complete |
+| Scientific adjudication registry | ✅ Complete |
+| Station-level forensic audit utility | ✅ Complete |
+| QC test suite | ✅ Complete — 14 tests passing |
+| Multi-station collaborator dataset integration | ✅ Complete |
+| Feature provenance audit | ⏭️ Next |
+| Temporal feature engineering | ⏳ Planned |
+| Leakage-safe train/validation/test split | ⏳ Planned |
+| XGBoost residual correction baseline | ⏳ Planned |
+| Extreme-event evaluation | ⏳ Planned |
+| Uncertainty quantification | ⏳ Planned |
+| Temporal deep learning | 🔬 Research roadmap |
+| River-network GNN | 🔬 Research roadmap |
+---
+
+# Technology stack
+
+<p>
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/pandas-data%20engineering-150458?logo=pandas&logoColor=white" alt="pandas">
+  <img src="https://img.shields.io/badge/NumPy-numerical%20computing-013243?logo=numpy&logoColor=white" alt="NumPy">
+  <img src="https://img.shields.io/badge/scikit--learn-machine%20learning-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn">
+  <img src="https://img.shields.io/badge/XGBoost-residual%20baseline-EB5E28" alt="XGBoost">
+  <img src="https://img.shields.io/badge/hydroeval-hydrologic%20metrics-0077B6" alt="hydroeval">
+  <img src="https://img.shields.io/badge/Matplotlib-visualization-11557C" alt="Matplotlib">
+  <img src="https://img.shields.io/badge/Ruff-code%20quality-D7FF64?logo=ruff&logoColor=black" alt="Ruff">
+</p>
+
+---
+
+# Citation
+
+A formal software citation and versioned release will be added when the first stable research release is published.
+
+Until then, please cite:
+
+```text
+HYDRO-FLOW-AI
+https://github.com/mtariqi/HYDRO-FLOW-AI
+```
+
+and acknowledge the upstream NWM-ML project when its workflows or source components materially contribute to the analysis.
+
+---
+
+# Contributing
+
+Reproducibility checks, hydrology-domain feedback, feature suggestions, model comparisons, and issue reports are welcome.
+
+For substantial changes, please open an issue describing:
+
+1. the hydrologic or machine-learning problem;
+2. the proposed change;
+3. expected validation criteria;
+4. implications for temporal leakage;
+5. implications for extreme-event evaluation;
+6. implications for uncertainty or calibration.
+
+---
+
+<p align="center">
+  <strong>HYDRO-FLOW-AI</strong><br>
+  Better average predictions are useful.<br>
+  <strong>Better extreme-event predictions are the objective.</strong>
+</p>

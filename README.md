@@ -25,6 +25,31 @@
 </p>
 
 ---
+## Contents
+
+- [Overview](#overview)
+- [Research question](#research-question)
+- [Quick start](#quick-start)
+- [Capability status](#capability-status)
+- [Architecture](#architecture)
+- [Snakemake v0.3.1 workflow](#snakemake-v031-workflow)
+- [Current model](#current-model)
+- [Evaluation](#evaluation)
+- [Graph-RAG diagnostics](#graph-rag-diagnostics)
+- [Apache NiFi integration](#apache-nifi-integration)
+- [Docker](#docker)
+- [Real-data research foundation](#real-data-research-foundation)
+- [Leakage controls](#leakage-controls)
+- [Repository structure](#repository-structure)
+- [Direct CLI use](#direct-cli-use)
+- [Reproducibility principles](#reproducibility-principles)
+- [Roadmap](#roadmap)
+- [Documentation](#documentation)
+- [Collaborator](#collaborator)
+- [Upstream reference](#upstream-reference)
+- [Citation](#citation)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 

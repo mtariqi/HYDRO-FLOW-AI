@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/HYDRO-FLOW-AI-banner-v0.3.1.png" alt="HYDRO-FLOW-AI architecture: NiFi ingestion, Snakemake workflow, physics-guided ML, graph-RAG diagnostics, Docker and CI" width="100%">
+  <img src="docs/assets/HYDRO-FLOW-AI-banner.png" alt="HYDRO-FLOW-AI architecture: NiFi ingestion, Snakemake workflow, physics-guided ML, graph-RAG diagnostics, Docker and CI" width="100%">
 </p>
 
 <h1 align="center">HYDRO-FLOW-AI</h1>

@@ -189,6 +189,22 @@ degradation counts for initially strong stations.
 Synthetic verification result
 One validated v0.3.1 run produced:
 
+## Previous graph-ML and streaming research
+
+Earlier HYDRO-FLOW-AI experiments investigated river-network-aware machine
+learning and Kafka-assisted streaming analysis. These experiments provide
+research evidence and architectural foundations for the current platform.
+
+They are retained as a separate research track because the present v0.3.1
+release validates a Snakemake-orchestrated residual-correction baseline and
+deterministic evidence graph. The earlier graph-ML and Kafka findings should
+not be presented as results reproduced by v0.3.1 until their original data,
+configurations, checkpoints and evaluation procedures are incorporated into
+the current workflow.
+
+Kafka remains relevant for high-frequency event transport, while Apache NiFi
+is intended for source ingestion, validation, provenance and replay. The two
+systems are complementary rather than interchangeable.
 | Measure | Result |
 |---|---:|
 | Stations evaluated | 12 |

@@ -524,109 +524,101 @@ flowchart TD
 # Repository structure
 ```text
 HYDRO-FLOW-AI/
-├── README.md
-├── LICENSE
-├── pyproject.toml
-├── requirements.txt
-├── .gitignore
-├── .pre-commit-config.yaml
+├── .github/
+│   └── workflows/
+│       └── ci.yml                      # Automated linting, tests and smoke run
 │
 ├── configs/
-│   ├── data.yaml
-│   ├── features.yaml
-│   ├── baseline_xgb.yaml
-│   ├── extremes.yaml
-│   └── uncertainty.yaml
+│   ├── base.yaml                       # Shared modelling configuration
+│   └── workflow.yaml                   # Snakemake inputs and outputs
 │
-├── data/
-│   ├── raw/
-│   │   └── .gitkeep
-│   ├── interim/
-│   │   └── .gitkeep
-│   ├── processed/
-│   │   └── .gitkeep
-│   └── derived/
-│       └── .gitkeep
+├── dags/
+│   └── hydroflow_pipeline.py           # Airflow integration-ready scheduler
+│
+├── data/                               # Generated or local data; Git-ignored
+│   ├── raw/                            # Immutable source data
+│   ├── validated/                      # Schema-validated records
+│   ├── processed/                      # Analysis-ready feature tables
+│   └── demo.csv                        # Synthetic demonstration dataset
 │
 ├── docs/
-│   ├── methodology.md
-│   ├── data_dictionary.md
-│   ├── reproducibility.md
-│   └── assets/
-│       └── HYDRO-FLOW-AI-banner.png
+│   ├── assets/
+│   │   └── HYDRO-FLOW-AI-banner-v0.3.1-current.png
+│   ├── KNOWLEDGE_GRAPH.md
+│   ├── MODEL_CARD.md
+│   ├── PROJECT_PLAN.md
+│   └── REFERENCES.md
 │
-├── notebooks/
-│   ├── 01_data_audit.ipynb
-│   ├── 02_extreme_flow_analysis.ipynb
-│   ├── 03_feature_diagnostics.ipynb
-│   └── 04_model_comparison.ipynb
+├── examples/
+│   ├── demo.csv
+│   └── VERIFICATION.txt
 │
-├── models/
-│   └── .gitkeep
+├── knowledge/
+│   ├── adapters/
+│   │   └── README.md
+│   ├── prompts/
+│   │   └── station_diagnosis.md
+│   └── schemas/
+│       ├── entities.yaml
+│       └── relationships.yaml
 │
-├── results/
-│   ├── figures/
-│   │   └── .gitkeep
-│   ├── metrics/
-│   │   └── .gitkeep
-│   └── tables/
-│       └── .gitkeep
+├── nifi/                               # Integration-ready; not deployed in v0.3.1
+│   ├── README.md
+│   ├── parameter-context.example.json
+│   └── flows/
+│       └── hydroflow_ingestion.json
+│
+├── artifacts/                          # Generated model artifacts; Git-ignored
+│   ├── residual_corrector.joblib
+│   ├── training_summary.json
+│   ├── evaluation.json
+│   ├── test_predictions.csv
+│   └── evidence_graph.json
+│
+├── reports/                            # Generated reports; Git-ignored
+│   ├── diagnostic_S000.txt
+│   └── workflow_dag.png
 │
 ├── src/
-│   └── hydro_flow_ai/
+│   ├── hydro_flow_ai/                  # Original reconstruction package
+│   │   └── reconstruct_dataset.py
+│   │
+│   └── hydroflow_ai/                   # v0.3.1 application package
 │       ├── __init__.py
-│       │
-│       ├── data/
-│       │   ├── __init__.py
-│       │   ├── reconstruct_dataset.py
-│       │   ├── validate.py
-│       │   └── io.py
-│       │
-│       ├── features/
-│       │   ├── __init__.py
-│       │   ├── temporal.py
-│       │   ├── precipitation.py
-│       │   ├── seasonality.py
-│       │   └── build_features.py
-│       │
-│       ├── modeling/
-│       │   ├── __init__.py
-│       │   ├── baseline.py
-│       │   ├── xgboost_model.py
-│       │   ├── train.py
-│       │   └── predict.py
-│       │
-│       ├── evaluation/
-│       │   ├── __init__.py
-│       │   ├── metrics.py
-│       │   ├── extremes.py
-│       │   ├── peaks.py
-│       │   └── evaluate.py
-│       │
-│       ├── uncertainty/
-│       │   ├── __init__.py
-│       │   ├── quantiles.py
-│       │   └── conformal.py
-│       │
-│       ├── advanced/
-│       │   ├── __init__.py
-│       │   ├── lstm.py
-│       │   ├── transformer.py
-│       │   └── river_gnn.py
-│       │
-│       ├── split.py
-│       └── utils.py
+│       ├── api.py                      # FastAPI endpoints
+│       ├── cli.py                      # hydroflow command-line interface
+│       ├── data.py                     # Synthetic data and data utilities
+│       ├── diagnostics.py              # Station-level diagnostics
+│       ├── evaluate.py                 # Hydrological evaluation
+│       ├── knowledge.py                # Evidence-graph construction
+│       ├── metrics.py                  # KGE, NSE and event metrics
+│       ├── model.py                    # Residual-correction estimator
+│       ├── network.py                  # River-network utilities
+│       ├── schemas.py                  # Data-validation schemas
+│       └── train.py                    # Training workflow
 │
 ├── tests/
-│   ├── test_reconstruction.py
-│   ├── test_features.py
-│   ├── test_split.py
-│   ├── test_metrics.py
-│   └── test_extremes.py
+│   └── test_pipeline.py                # End-to-end pipeline tests
 │
-└── .github/
-    └── workflows/
-        └── ci.yml
+├── workflow/
+│   ├── Snakefile                      # Main reproducible research DAG
+│   ├── README.md                      # Local and Slurm instructions
+│   ├── envs/
+│   │   └── hydroflow.yaml             # Conda environment
+│   └── profiles/
+│       ├── local/
+│       │   └── config.yaml
+│       └── slurm/
+│           └── config.yaml
+│
+├── .dockerignore
+├── .gitignore
+├── Dockerfile                         # Application container
+├── docker-compose.yml                 # Local service orchestration
+├── LICENSE
+├── Makefile                           # Convenient development commands
+├── pyproject.toml                     # Package metadata and dependencies
+└── README.md
 ```
 ```text
 Google Drive — collaborative/source data

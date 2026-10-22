@@ -1,0 +1,99 @@
+"""Reproducible HYDRO-FLOW-AI research workflow.
+
+Run from the repository root. The rules deliberately call the public
+``hydroflow`` CLI so the workflow and interactive execution use one code path.
+"""
+
+configfile: "configs/workflow.yaml"
+
+DATA = config["input_data"]
+ARTIFACTS = config["artifacts_dir"]
+REPORTS = config["reports_dir"]
+DEMO = config.get("generate_demo", True)
+STATION = config.get("diagnostic_station", "S000")
+
+
+rule all:
+    input:
+        f"{ARTIFACTS}/residual_corrector.joblib",
+        f"{ARTIFACTS}/training_summary.json",
+        f"{ARTIFACTS}/evaluation.json",
+        f"{ARTIFACTS}/test_predictions.csv",
+        f"{ARTIFACTS}/evidence_graph.json",
+        f"{REPORTS}/diagnostic_{STATION}.txt",
+
+
+if DEMO:
+    rule make_demo:
+        output:
+            DATA,
+        params:
+            stations=config.get("demo_stations", 12),
+            periods=config.get("demo_periods", 1600),
+        threads: 1
+        resources:
+            mem_mb=1024,
+            runtime=10,
+        shell:
+            "hydroflow make-demo --output {output} "
+            "--stations {params.stations} --periods {params.periods}"
+
+
+rule train:
+    input:
+        DATA,
+    output:
+        model=f"{ARTIFACTS}/residual_corrector.joblib",
+        summary=f"{ARTIFACTS}/training_summary.json",
+    threads: 2
+    resources:
+        mem_mb=4096,
+        runtime=30,
+    shell:
+        "hydroflow train --data {input} --output {ARTIFACTS}"
+
+
+rule evaluate:
+    input:
+        data=DATA,
+        model=f"{ARTIFACTS}/residual_corrector.joblib",
+        summary=f"{ARTIFACTS}/training_summary.json",
+    output:
+        evaluation=f"{ARTIFACTS}/evaluation.json",
+        predictions=f"{ARTIFACTS}/test_predictions.csv",
+    threads: 2
+    resources:
+        mem_mb=4096,
+        runtime=30,
+    shell:
+        "hydroflow evaluate --data {input.data} --artifacts {ARTIFACTS}"
+
+
+rule build_knowledge:
+    input:
+        f"{ARTIFACTS}/evaluation.json",
+    output:
+        f"{ARTIFACTS}/evidence_graph.json",
+    threads: 1
+    resources:
+        mem_mb=2048,
+        runtime=15,
+    shell:
+        "hydroflow build-knowledge --artifacts {ARTIFACTS}"
+
+
+rule diagnose_station:
+    input:
+        f"{ARTIFACTS}/evidence_graph.json",
+    output:
+        f"{REPORTS}/diagnostic_{STATION}.txt",
+    params:
+        station=STATION,
+    threads: 1
+    resources:
+        mem_mb=1024,
+        runtime=5,
+    shell:
+        "mkdir -p {REPORTS} && "
+        "hydroflow diagnose --artifacts {ARTIFACTS} --station {params.station} > {output}"
+

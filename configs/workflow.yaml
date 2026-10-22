@@ -1,0 +1,12 @@
+# Paths are interpreted relative to the repository root when Snakemake is
+# launched with --snakefile workflow/Snakefile.
+input_data: data/demo.csv
+artifacts_dir: artifacts
+reports_dir: reports
+
+# The demo rule is useful until a real USGS/NWM feature table is supplied.
+generate_demo: true
+demo_stations: 12
+demo_periods: 1600
+diagnostic_station: S000
+

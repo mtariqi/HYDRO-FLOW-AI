@@ -1,0 +1,11 @@
+Source compilation: PASS
+End-to-end smoke workflow: PASS
+{
+  "stations": 12,
+  "negative_kge_stations": 3,
+  "negative_kge_moved_above_zero": 3,
+  "negative_kge_moved_above_0_5": 3,
+  "median_delta_kge": 0.3665773030217717,
+  "good_stations_degraded": 0
+}
+pytest/ruff: not executed in build workspace because executables were unavailable.

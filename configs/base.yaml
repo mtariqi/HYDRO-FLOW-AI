@@ -1,0 +1,22 @@
+seed: 42
+data:
+  frequency_minutes: 15
+  history_steps: 96
+  horizons: [1, 4, 12, 24, 48, 96]
+  train_fraction: 0.70
+  validation_fraction: 0.15
+model:
+  kind: hist_gradient_boosting
+  learning_rate: 0.05
+  max_iter: 250
+  max_leaf_nodes: 31
+  l2_regularization: 1.0
+evaluation:
+  failure_kge_threshold: 0.0
+  acceptable_kge_threshold: 0.5
+  flood_quantile: 0.95
+rag:
+  backend: local
+  retrieval_mode: hybrid
+  require_citations: true
+

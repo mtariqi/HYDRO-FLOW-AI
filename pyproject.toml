@@ -4,39 +4,55 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydro-flow-ai"
-version = "0.1.0"
-description = "Extreme-aware AI framework for streamflow prediction and NWM bias correction."
+version = "0.3.1"
+description = "Extreme-aware physics-guided streamflow correction with graph-RAG diagnostics."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-# TODO: add author(s), e.g. authors = [{ name = "Your Name", email = "you@example.com" }]
-
-# Core dependencies actually used by the current codebase
-# (src/hydro_flow_ai/reconstruct_dataset.py).
+license = {text = "MIT"}
 dependencies = [
     "numpy>=1.24",
     "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "pydantic>=2.6",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "joblib>=1.3",
 ]
 
 [project.optional-dependencies]
-# Planned for the modeling stage (XGBoost residual-correction baseline).
 ml = [
     "xgboost>=2.0",
-    "scikit-learn>=1.3",
 ]
-
-# Planned for later roadmap items (Transformer/LSTM, river-network GNN).
 dl = [
     "torch>=2.1",
 ]
-
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+]
+rag = [
+    "lightrag-hku>=1.4",
+    "raganything>=1.2",
+]
+workflow = [
+    "snakemake>=9.27",
+    "snakemake-executor-plugin-slurm>=1.9",
+]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "httpx>=0.27",
 ]
+
+[project.scripts]
+hydroflow = "hydroflow_ai.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 99

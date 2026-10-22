@@ -59,6 +59,29 @@ The central research question is:
 
 <img width="1209" height="965" alt="image" src="https://github.com/user-attachments/assets/f9cc14f1-50a6-4d68-99c5-8be7456d8f0b" />
 
+
+## Snakemake v0.3.1 workflow
+
+The repository now includes a reproducible Snakemake workflow for synthetic
+NWM residual correction, station-level hydrological evaluation, graph-based
+evidence indexing, and station-specific diagnostic reporting.
+
+See:
+
+- [Snakemake v0.3.1 guide](docs/SNAKEMAKE_V0.3.1.md)
+- [Workflow instructions](workflow/README.md)
+- [Model card](docs/MODEL_CARD.md)
+- [Research plan](docs/PROJECT_PLAN.md)
+
+Run locally:
+
+```bash
+pip install -e ".[dev,api,workflow]"
+
+snakemake \
+  --snakefile workflow/Snakefile \
+  --workflow-profile workflow/profiles/local \
+  --cores 8
 ## Study sites
 
 The current validated reconstruction uses two USGS gauges in Utah.

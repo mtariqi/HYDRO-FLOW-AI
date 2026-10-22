@@ -1,63 +1,79 @@
 <p align="center">
-  <img src="docs/assets/HYDRO-FLOW-AI-banner.png" alt="HYDRO-FLOW-AI banner" width="100%">
+  <img src="docs/assets/HYDRO-FLOW-AI-banner-v0.3.1.png" alt="HYDRO-FLOW-AI architecture: NiFi ingestion, Snakemake workflow, physics-guided ML, graph-RAG diagnostics, Docker and CI" width="100%">
 </p>
 
 <h1 align="center">HYDRO-FLOW-AI</h1>
 
-<p align="center">
-  <strong>
-    Extreme-aware AI for streamflow prediction, National Water Model bias correction,
-    uncertainty quantification, and flood-event detection.
-  </strong>
-</p>
+<p align="center"><strong>Physics-guided streamflow correction, reproducible workflows, and evidence-linked hydrological diagnostics.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI">
-    <img src="https://img.shields.io/badge/GitHub-mtariqi%2FHYDRO--FLOW--AI-181717?logo=github" alt="GitHub repository">
-  </a>
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI"><img src="https://img.shields.io/badge/GitHub-mtariqi%2FHYDRO--FLOW--AI-181717?logo=github" alt="GitHub repository"></a>
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/Snakemake-9.27-039475" alt="Snakemake 9.27">
+  <img src="https://img.shields.io/badge/Apache%20NiFi-integration--ready-728E9B" alt="Apache NiFi integration-ready">
+  <img src="https://img.shields.io/badge/Docker-containerized-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/status-active%20research-2ea44f" alt="Active research">
-  <img src="https://img.shields.io/badge/domain-hydrology-0077B6" alt="Hydrology">
-  <img src="https://img.shields.io/badge/focus-extreme%20streamflow-D1495B" alt="Extreme streamflow">
-  <img src="https://img.shields.io/badge/baseline-XGBoost-EB5E28" alt="XGBoost baseline">
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/stargazers">
-    <img src="https://img.shields.io/github/stars/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/network/members">
-    <img src="https://img.shields.io/github/forks/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub forks">
-  </a>
-  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/issues">
-    <img src="https://img.shields.io/github/issues/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub issues">
-  </a>
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/actions"><img src="https://img.shields.io/github/actions/workflow/status/mtariqi/HYDRO-FLOW-AI/ci.yml?branch=main&label=CI&logo=githubactions" alt="CI"></a>
+  <a href="https://github.com/mtariqi/HYDRO-FLOW-AI/issues"><img src="https://img.shields.io/github/issues/mtariqi/HYDRO-FLOW-AI?style=flat&logo=github" alt="GitHub issues"></a>
   <img src="https://img.shields.io/github/last-commit/mtariqi/HYDRO-FLOW-AI?style=flat&logo=git" alt="Last commit">
+  <img src="https://img.shields.io/badge/domain-hydrology-0077B6" alt="Hydrology">
   <img src="https://img.shields.io/badge/reproducibility-priority-6f42c1" alt="Reproducibility priority">
-  <img src="https://img.shields.io/badge/data-USGS%20%2B%20Climate%20%2B%20NWM-0A9396" alt="Data sources">
 </p>
 
 ---
 
-## Why HYDRO-FLOW-AI?
+## Overview
+HYDRO-FLOW-AI is a research platform for diagnosing and correcting weak
+streamflow estimates from the U.S. National Water Model (NWM). The current
+v0.3.1 release learns a residual correction around an NWM-like physical
+forecast, evaluates performance by station and flow event, and converts model
+results into traceable evidence records for station-specific diagnostics.
 
-National Water Model (NWM) forecasts provide an important hydrologic baseline, but local forecast errors can become substantial at individual gauges. Those errors are particularly important during high-flow and flood-related conditions, when underprediction or mistimed peaks can reduce the usefulness of operational forecasts.
+The platform separates four concerns:
+1. Data movement and provenance — Apache NiFi integration design for
+   ingestion, validation, routing, back-pressure, and lineage.
+2. Reproducible research execution — Snakemake rules for data generation,
+   training, evaluation, evidence indexing, and diagnostic reporting.
+3. Forecast correction — physics-guided machine learning that estimates
+   the residual error around an NWM baseline.
+4. Evidence-grounded interpretation — a graph-RAG-compatible evidence
+   layer and FastAPI endpoints for station diagnostics.
+Research status: v0.3.1 validates the software workflow with synthetic
+data. It does not yet demonstrate improvement on operational NWM forecasts
+and must not be used as an official flood-warning system.
 
-HYDRO-FLOW-AI treats NWM bias correction as more than a conventional regression problem. The framework is designed to:
+### Research question
+> **Can regime-aware, physics-guided machine learning improve weak NWM
+streamflow estimates while preserving temporal validity, hydrological
+interpretability, event-detection performance, and reproducibility?
+**
 
-* preserve the NWM prediction as a physical/model baseline;
-* learn systematic residual error from hydrometeorological context;
-* represent antecedent rainfall, temperature, seasonality, and watershed characteristics;
-* avoid temporal leakage during training and validation;
-* evaluate high-flow behavior separately from average-flow performance;
-* quantify predictive uncertainty;
-* support future temporal deep learning and river-network graph learning.
 
-The central research question is:
+<img width="1683" height="721" alt="image" src="https://github.com/user-attachments/assets/94779090-a924-4b99-890b-b1f55f5771db" />
 
-> **Can extreme-aware, temporally informed AI improve NWM streamflow predictions without sacrificing reproducibility, hydrologic interpretability, or out-of-sample validity?**
 
-<img width="1209" height="965" alt="image" src="https://github.com/user-attachments/assets/f9cc14f1-50a6-4d68-99c5-8be7456d8f0b" />
+## Capability status
+| Component | Status | Notes |
+|---|---|---|
+| Synthetic hydrological generator | Implemented | Runs without external credentials |
+| Residual ML correction | Implemented | Histogram gradient boosting around NWM-like flow |
+| Chronological splitting | Implemented | 70% training, 15% validation, 15% test |
+| Station and event metrics | Implemented | KGE, NSE, RMSE, MAE, bias, CSI and detection metrics |
+| Snakemake workflow | Implemented | Local and Slurm profiles |
+| Evidence graph | Implemented | Deterministic offline retrieval baseline |
+| Station-constrained diagnosis | Implemented | Prevents cross-station evidence contamination |
+| FastAPI service | Implemented | Prediction, health and diagnostic endpoints |
+| Docker and Compose | Implemented | Reproducible API packaging |
+| GitHub Actions | Implemented | Linting, tests and smoke workflow |
+| Apache NiFi | Integration-ready | Intended for continuous ingestion and provenance |
+| Airflow | Integration-ready | Outer scheduling of batch retraining |
+| Real USGS/NWM pilot | Planned | Requires issue-time-aligned source data |
+| Multi-horizon forecasting | Planned | 15 minutes to 24 hours |
+| Quantile uncertainty | Planned | P05/P50/P95 and calibration |
+| River-network GNN | Planned | Travel-time-aware upstream/downstream learning |
 
 
 ## Snakemake v0.3.1 workflow
@@ -90,23 +106,127 @@ The current validated reconstruction uses two USGS gauges in Utah.
 | ------------ | --------------------------------------- | ----------: | -----------: |
 | `10133800`   | East Canyon Creek near Jeremy Ranch, UT | 40.75966979 | -111.5640912 |
 | `10133600`   | McLeod Creek near Park City, UT         | 40.68803889 | -111.5337194 |
+```
+## Architecture
+flowchart TD
+    A["NWM, USGS, weather, SWE, reservoirs"] --> B["Apache NiFi ingestion"]
+    B --> C["Validated raw storage and feature tables"]
+    C --> D["Snakemake research workflow"]
+    D --> E["Physics-guided residual correction"]
+    E --> F["Station and event evaluation"]
+    F --> G["Evidence graph and diagnostics"]
+    G --> H["FastAPI and reports"]
+    I["Docker and GitHub Actions"] --> D
+    J["Airflow scheduling"] --> D
 
-### Current modeling record
+### Separation of responsibilities
+| Technology | Responsibility |
+|---|---|
+| Apache NiFi | Continuous collection, routing, schema checks, provenance, replay and back-pressure |
+| Snakemake | File-based scientific dependency graph and reproducible execution |
+| Airflow | Scheduled triggering and outer workflow coordination |
+| Docker | Portable runtime for the API and repeatable deployments |
+| GitHub Actions | Automated linting, testing and smoke validation |
+| FastAPI | Online prediction and station-diagnostic interface |
+| Graph-RAG layer | Links stations, experiments, metrics, documents and evidence |
 
-The reconstructed machine-learning dataset spans **2012–2019 at daily resolution**.
+### Snakemake v0.3.1 workflow
+The validated workflow executes six dependency-aware steps:
+make_demo
+    └── train
+          └── evaluate
+                └── build_knowledge
+                      └── diagnose_station
+                            └── all
+                            
+Run it locally:
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,api,workflow]"
 
-The current workflow combines:
+snakemake \
+  --snakefile workflow/Snakefile \
+  --workflow-profile workflow/profiles/local \
+  --cores 8 \
+  --dry-run
 
-* observed USGS streamflow;
-* NWM streamflow;
-* temperature;
-* precipitation;
-* drainage area;
-* basin elevation;
-* forest/developed/impervious/herbaceous cover;
-* steep-slope fraction;
-* mean annual precipitation;
-* seasonal timing information.
+snakemake \
+  --snakefile workflow/Snakefile \
+  --workflow-profile workflow/profiles/local \
+  --cores 8
+
+Expected outputs:
+data/demo.csv
+artifacts/residual_corrector.joblib
+artifacts/training_summary.json
+artifacts/evaluation.json
+artifacts/test_predictions.csv
+artifacts/evidence_graph.json
+reports/diagnostic_S000.txt 
+
+An unchanged repeat run should report:
+Nothing to be done (all requested files are present and up to date).
+See [README.md](workflow/README.md) for local and Slurm execution.
+Current model
+The v0.3.1 baseline estimates the residual between observed discharge and the
+physical forecast:
+
+e_t = Q_{observed,t} - Q_{NWM,t}
+\hat{Q}_{corrected,t} = \max(0, Q_{NWM,t} + \hat{e}_t)
+
+
+Features include NWM-like flow, precipitation, temperature, soil moisture,
+snow-water equivalent, reservoir-storage change, recent residuals, upstream
+flow context, basin attributes, regulation status, and cyclical seasonality.
+
+High-flow observations receive additional training weight. The current model is
+a same-time residual-correction baseline; multi-horizon targets are future work.
+Evaluation
+The workflow reports KGE, NSE, RMSE, MAE, percent bias, bias ratio, variability
+ratio, correlation, critical success index, probability of detection,
+false-alarm ratio, station-level KGE change, failure-cohort recovery, and
+degradation counts for initially strong stations.
+Synthetic verification result
+One validated v0.3.1 run produced:
+
+| Measure | Result |
+|---|---:|
+| Stations evaluated | 12 |
+| Negative-KGE stations | 2 |
+| Negative-KGE stations moved above zero | 2 |
+| Negative-KGE stations moved above KGE 0.5 | 2 |
+| Median station-level ΔKGE | +0.373 |
+| Initially strong stations degraded | 0 |
+| Pooled validation KGE | 0.474 → 0.935 |
+| Validation RMSE | 2.243 → 0.684 |
+
+These values validate pipeline behavior only. Synthetic relationships are more
+regular than operational hydrology and cannot establish real-world skill.
+
+## Graph-RAG diagnostics
+The evidence layer connects gauges, catchments, NWM reaches, dataset versions,
+model runs, features, metrics, modelling decisions, and diagnostic reports.
+
+hydroflow build-knowledge --artifacts artifacts
+hydroflow diagnose --artifacts artifacts --station S000
+
+Station diagnosis uses an exact station-entity constraint. A report for S000
+cannot retrieve S001 merely because both records contain terms such as “KGE” or
+“NWM.” Every statement includes its evidence identifier and source.
+
+## Apache NiFi integration
+
+NiFi is the proposed operational ingestion layer for USGS observations, NWM
+forecast vintages, meteorological forecasts, SNOTEL snow-water equivalent,
+reservoir operations, and station/catchment metadata.
+
+Fetch or receive data
+    → attach source and issue-time metadata
+    → validate schema and freshness
+    → reject duplicates
+    → quarantine invalid records
+    → retain an immutable raw copy
+    → publish validated data for Snakemake
 
 ### Dataset scopes
 
@@ -133,350 +253,7 @@ from pooled modeling until their NWM–USGS relationship has been
 scientifically adjudicated.
 
 
-# Research pipeline
-```mermaid text
-%%{init: {
-  "theme": "base",
-  "themeVariables": {
-    "fontSize": "22px",
-    "fontFamily": "Arial, Helvetica, sans-serif",
-    "primaryTextColor": "#111827",
-    "lineColor": "#475569"
-  },
-  "flowchart": {
-    "htmlLabels": true,
-    "nodeSpacing": 65,
-    "rankSpacing": 75,
-    "curve": "basis"
-  }
-}}%%
 
-flowchart TD
-
-    %% =========================================================
-    %% 1. HYDROLOGIC + ENVIRONMENTAL INPUTS
-    %% =========================================================
-    subgraph INPUTS["1 · Hydrologic and Environmental Inputs"]
-        direction LR
-
-        A1["USGS observed streamflow<br/><b>flow_cms</b>"]
-        A2["NWM streamflow<br/><b>NWM_flow</b>"]
-        A3["Climate forcing<br/>precipitation + temperature"]
-        A4["Hydrologic state<br/>storage + SWE"]
-        A5["Basin / site attributes<br/>area, elevation, slope,<br/>land cover, coordinates"]
-    end
-
-
-    %% =========================================================
-    %% 2. RECONSTRUCTION-VALIDATION COHORT
-    %% =========================================================
-    subgraph RECON["2 · Reconstruction-Validation Cohort · COMPLETE"]
-        direction TB
-
-        B1["Map retained coordinates<br/>to NWIS site ID"]
-        B2["Build dated reference table<br/>Climate + USGS flow"]
-        B3["Restrict candidate dates<br/>site + day-of-year"]
-        B4["Tolerance-based matching<br/>temperature + precipitation + flow"]
-        B5{"Exactly one date<br/>per training row?"}
-        B6["Validated reconstruction<br/><b>5,740 / 5,740 rows</b><br/>2 Utah gauges"]
-        B7["Diagnostics + ReconstructionError<br/>output withheld"]
-
-        B1 --> B3
-        B2 --> B3
-        B3 --> B4
-        B4 --> B5
-        B5 -->|"PASS"| B6
-        B5 -->|"FAIL"| B7
-    end
-
-
-    %% =========================================================
-    %% 3. MULTI-STATION BASELINE + QUALITY CONTROL
-    %% =========================================================
-    subgraph QC["3 · Multi-Station Baseline + QC · COMPLETE"]
-        direction TB
-
-        Q1["Current research cohort<br/><b>296,161 station-days</b><br/><b>30 USGS stations</b><br/>Utah + Idaho"]
-
-        Q2["Raw NWM baseline evaluation<br/>RMSE · MAE · Bias"]
-
-        Q3["Station-specific high-flow diagnostics<br/>Q95 / Q99 RMSE"]
-
-        Q4["Automated scale-anomaly screening<br/>range overlap + central overlap<br/>mean / median scale ratios"]
-
-        Q5["Targeted forensic audit<br/>for suspicious stations"]
-
-        Q6["Station adjudication registry<br/>include · review · exclude"]
-
-        Q7["Explicit model-eligible cohort<br/>flagged + unresolved → blocked"]
-
-        Q1 --> Q2
-        Q2 --> Q3
-        Q3 --> Q4
-        Q4 --> Q5
-        Q4 --> Q6
-        Q5 --> Q6
-        Q6 --> Q7
-    end
-
-
-    %% =========================================================
-    %% 4. FEATURE PROVENANCE AUDIT
-    %% =========================================================
-    subgraph PROV["4 · Feature Provenance Audit · NEXT"]
-        direction LR
-
-        P1["Audit source variables with unclear provenance<br/>min · max · mean · median · s1 · s2"]
-
-        P2["Check target leakage"]
-
-        P3["Check temporal availability"]
-
-        P4["Approve prediction-time features"]
-
-        P5["Document provenance + exclusions"]
-
-        P1 --> P2
-        P1 --> P3
-        P2 --> P4
-        P3 --> P4
-        P4 --> P5
-    end
-
-
-    %% =========================================================
-    %% 5. TEMPORAL FEATURE ENGINEERING
-    %% =========================================================
-    subgraph FEATURES["5 · Temporal Feature Engineering"]
-        direction LR
-
-        C1["NWM flow lags<br/>Qt, Qt−1, Qt−3, Qt−7"]
-
-        C2["Precipitation history<br/>Pt, P3d, P7d, P14d"]
-
-        C3["Temperature history<br/>Tt, Tt−1, Tt−3, Tt−7"]
-
-        C4["Hydrologic state features<br/>storage + SWE + lags"]
-
-        C5["Cyclic seasonality<br/>sin(DOY), cos(DOY)"]
-
-        C6["Static watershed context"]
-
-        C7["Model-ready feature matrix"]
-
-        C1 --> C7
-        C2 --> C7
-        C3 --> C7
-        C4 --> C7
-        C5 --> C7
-        C6 --> C7
-    end
-
-
-    %% =========================================================
-    %% 6. LEAKAGE-SAFE TEMPORAL SPLIT
-    %% =========================================================
-    subgraph SPLIT["6 · Leakage-Safe Temporal Split"]
-        direction LR
-
-        D1["TRAIN<br/>earlier historical period"]
-
-        D2["VALIDATION<br/>later period"]
-
-        D3["HELD-OUT TEST<br/>final untouched period"]
-
-        D1 -->|"fit preprocessing + model"| D2
-        D2 -->|"model selection / tuning"| D3
-    end
-
-
-    %% =========================================================
-    %% 7. RESIDUAL-CORRECTION MODELING
-    %% =========================================================
-    subgraph MODEL["7 · Residual-Correction Modeling"]
-        direction TB
-
-        E1["Raw NWM reference"]
-
-        E2["Residual target<br/><b>e_t = Qobs − QNWM</b>"]
-
-        E3["XGBoost residual model"]
-
-        E4["Predicted residual<br/><b>ê_t</b>"]
-
-        E5["Corrected discharge<br/><b>Q̂corrected = QNWM + ê_t</b>"]
-
-        E1 --> E2
-        E2 --> E3
-        E3 --> E4
-        E1 --> E5
-        E4 --> E5
-    end
-
-
-    %% =========================================================
-    %% 8. EXTREME-AWARE EVALUATION
-    %% =========================================================
-    subgraph EVAL["8 · Extreme-Aware Evaluation"]
-        direction LR
-
-        F1["Average-flow metrics<br/>RMSE · MAE · Bias"]
-
-        F2["Hydrologic efficiency<br/>NSE · KGE"]
-
-        F3["High-flow performance<br/>Q95 / Q99 RMSE"]
-
-        F4["Peak magnitude error"]
-
-        F5["Peak timing error"]
-
-        F6["Event detection<br/>POD · FAR · CSI"]
-
-        F7["Raw NWM vs corrected model<br/>paired comparison"]
-    end
-
-
-    %% =========================================================
-    %% 9. UNCERTAINTY QUANTIFICATION
-    %% =========================================================
-    subgraph UQ["9 · Uncertainty Quantification"]
-        direction LR
-
-        G1["Quantile regression"]
-
-        G2["Prediction intervals"]
-
-        G3["Conformal calibration"]
-
-        G4["Threshold-exceedance probability<br/><b>P(Q > Qcritical)</b>"]
-
-        G1 --> G2
-        G2 --> G3
-        G3 --> G4
-    end
-
-
-    %% =========================================================
-    %% 10. ADVANCED AI ROADMAP
-    %% =========================================================
-    subgraph ADV["10 · Advanced AI Roadmap"]
-        direction LR
-
-        H1["LSTM / GRU"]
-
-        H2["Transformer / N-HiTS"]
-
-        H3["Directed river-network GNN"]
-
-        H4["Hybrid spatiotemporal model"]
-
-        H5["Probabilistic extreme-event head"]
-
-        H6["Ablation + model comparison"]
-
-        H1 --> H4
-        H2 --> H4
-        H3 --> H4
-        H4 --> H5
-        H5 --> H6
-    end
-
-
-    %% =========================================================
-    %% CROSS-STAGE CONNECTIONS
-    %% =========================================================
-
-    A1 --> B2
-    A3 --> B2
-
-    A1 --> Q1
-    A2 --> Q1
-    A3 --> Q1
-    A4 --> Q1
-    A5 --> Q1
-
-    B6 -. reconstruction validation .-> Q1
-
-    Q7 --> P1
-
-    P5 --> C1
-    P5 --> C2
-    P5 --> C3
-    P5 --> C4
-    P5 --> C5
-    P5 --> C6
-
-    C7 --> D1
-    C7 --> D2
-    C7 --> D3
-
-    D1 --> E3
-    D2 --> E3
-    D3 --> E5
-
-    A1 -. observed target .-> E2
-
-    E5 --> F1
-    E5 --> F2
-    E5 --> F3
-    E5 --> F4
-    E5 --> F5
-    E5 --> F6
-
-    E1 -. baseline comparison .-> F7
-    E5 --> F7
-
-    F3 --> G1
-    F4 --> G1
-    F6 --> G4
-
-    G3 --> H1
-    G3 --> H2
-    G3 --> H3
-
-
-    %% =========================================================
-    %% STYLING
-    %% =========================================================
-
-    classDef input fill:#ede9fe,stroke:#7c3aed,color:#111827,font-weight:bold;
-    classDef complete fill:#1b4332,stroke:#2d6a4f,color:#ffffff,font-weight:bold;
-    classDef active fill:#023047,stroke:#219ebc,color:#ffffff,font-weight:bold;
-    classDef next fill:#7c2d12,stroke:#ea580c,color:#ffffff,font-weight:bold;
-    classDef planned fill:#3c3744,stroke:#7a7788,color:#ffffff,font-weight:bold;
-    classDef failure fill:#7f1d1d,stroke:#b91c1c,color:#ffffff,font-weight:bold;
-
-    class A1,A2,A3,A4,A5 input;
-
-    class B1,B2,B3,B4,B5,B6 complete;
-    class B7 failure;
-
-    class Q1,Q2,Q3,Q4,Q5,Q6,Q7 complete;
-
-    class P1,P2,P3,P4,P5 next;
-
-    class C1,C2,C3,C4,C5,C6,C7 active;
-    class D1,D2,D3 active;
-    class E1,E2,E3,E4,E5 active;
-    class F1,F2,F3,F4,F5,F6,F7 active;
-
-    class G1,G2,G3,G4 planned;
-    class H1,H2,H3,H4,H5,H6 planned;
-```
-<p align="center">
-  <strong>Legend:</strong>
-  🟣 Hydrologic / environmental inputs
-  &nbsp;·&nbsp;
-  🟢 Complete and validated
-  &nbsp;·&nbsp;
-  🟠 Next — feature provenance audit
-  &nbsp;·&nbsp;
-  🔵 Near-term implementation
-  &nbsp;·&nbsp;
-  ⚫ Longer-term research roadmap
-  &nbsp;·&nbsp;
-  🔴 Validation failure path
-</p>
 ```
 
 ## Stage 1 — Dataset reconstruction ✅

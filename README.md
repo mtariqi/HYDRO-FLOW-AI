@@ -1,4 +1,5 @@
 <p align="center">
+  
   <img src="docs/assets/HYDRO-FLOW-AI-banner.png" alt="HYDRO-FLOW-AI architecture: NiFi ingestion, Snakemake workflow, physics-guided ML, graph-RAG diagnostics, Docker and CI" width="100%">
 </p>
 
@@ -26,6 +27,7 @@
 ---
 
 ## Overview
+
 HYDRO-FLOW-AI is a research platform for diagnosing and correcting weak
 streamflow estimates from the U.S. National Water Model (NWM). The current
 v0.3.1 release learns a residual correction around an NWM-like physical
@@ -33,29 +35,30 @@ forecast, evaluates performance by station and flow event, and converts model
 results into traceable evidence records for station-specific diagnostics.
 
 The platform separates four concerns:
-1. Data movement and provenance — Apache NiFi integration design for
+
+1. **Data movement and provenance** — Apache NiFi integration design for
    ingestion, validation, routing, back-pressure, and lineage.
-2. Reproducible research execution — Snakemake rules for data generation,
+2. **Reproducible research execution** — Snakemake rules for data generation,
    training, evaluation, evidence indexing, and diagnostic reporting.
-3. Forecast correction — physics-guided machine learning that estimates
+3. **Forecast correction** — physics-guided machine learning that estimates
    the residual error around an NWM baseline.
-4. Evidence-grounded interpretation — a graph-RAG-compatible evidence
+4. **Evidence-grounded interpretation** — a graph-RAG-compatible evidence
    layer and FastAPI endpoints for station diagnostics.
-Research status: v0.3.1 validates the software workflow with synthetic
-data. It does not yet demonstrate improvement on operational NWM forecasts
-and must not be used as an official flood-warning system.
 
-### Research question
-> **Can regime-aware, physics-guided machine learning improve weak NWM
-streamflow estimates while preserving temporal validity, hydrological
-interpretability, event-detection performance, and reproducibility?
-**
+> **Research status:** v0.3.1 validates the software workflow with synthetic
+> data. It does not yet demonstrate improvement on operational NWM forecasts
+> and must not be used as an official flood-warning system.
 
+## Research question
+
+> Can regime-aware, physics-guided machine learning improve weak NWM
+> streamflow estimates while preserving temporal validity, hydrological
+> interpretability, event-detection performance, and reproducibility?
 
 <img width="1683" height="721" alt="image" src="https://github.com/user-attachments/assets/94779090-a924-4b99-890b-b1f55f5771db" />
 
-
 ## Capability status
+
 | Component | Status | Notes |
 |---|---|---|
 | Synthetic hydrological generator | Implemented | Runs without external credentials |
@@ -75,51 +78,66 @@ interpretability, event-detection performance, and reproducibility?
 | Quantile uncertainty | Planned | P05/P50/P95 and calibration |
 | River-network GNN | Planned | Travel-time-aware upstream/downstream learning |
 
-
-## Snakemake v0.3.1 workflow
-
-The repository now includes a reproducible Snakemake workflow for synthetic
-NWM residual correction, station-level hydrological evaluation, graph-based
-evidence indexing, and station-specific diagnostic reporting.
-
-See:
-
-- [Snakemake v0.3.1 guide](docs/SNAKEMAKE_V0.3.1.md)
-- [Workflow instructions](workflow/README.md)
-- [Model card](docs/MODEL_CARD.md)
-- [Research plan](docs/PROJECT_PLAN.md)
-
-Run locally:
-
-```bash
-pip install -e ".[dev,api,workflow]"
-
-snakemake \
-  --snakefile workflow/Snakefile \
-  --workflow-profile workflow/profiles/local \
-  --cores 8
-## Study sites
-
-The current validated reconstruction uses two USGS gauges in Utah.
-
-| NWIS Site ID | Station                                 |    Latitude |    Longitude |
-| ------------ | --------------------------------------- | ----------: | -----------: |
-| `10133800`   | East Canyon Creek near Jeremy Ranch, UT | 40.75966979 | -111.5640912 |
-| `10133600`   | McLeod Creek near Park City, UT         | 40.68803889 | -111.5337194 |
-```
 ## Architecture
+
+```mermaid
 flowchart TD
-    A["NWM, USGS, weather, SWE, reservoirs"] --> B["Apache NiFi ingestion"]
-    B --> C["Validated raw storage and feature tables"]
-    C --> D["Snakemake research workflow"]
-    D --> E["Physics-guided residual correction"]
-    E --> F["Station and event evaluation"]
-    F --> G["Evidence graph and diagnostics"]
-    G --> H["FastAPI and reports"]
-    I["Docker and GitHub Actions"] --> D
-    J["Airflow scheduling"] --> D
+    subgraph DATA["Data and scientific validation"]
+        A["USGS, NWM, climate, SWE, reservoirs,<br/>and basin attributes"]
+        B["Reconstruction-validation cohort<br/><b>5,740 / 5,740 rows · complete</b>"]
+        C["Multi-station baseline and QC<br/><b>296,161 station-days · 30 stations · complete</b>"]
+        D["Feature-provenance audit<br/><b>next</b>"]
+        E["Temporal features and<br/>leakage-safe split"]
+        A --> B --> C --> D --> E
+    end
+
+    subgraph SCIENCE["Model development and evaluation"]
+        F["Residual correction<br/>Q corrected = Q NWM + predicted residual"]
+        G["Extreme-aware evaluation<br/>KGE · NSE · RMSE · Q95/Q99 · POD · FAR · CSI"]
+        H["Uncertainty quantification<br/><b>planned</b>"]
+        I["Advanced AI<br/>LSTM/Transformer · river-network GNN<br/><b>longer-term roadmap</b>"]
+        F --> G --> H --> I
+    end
+
+    subgraph PLATFORM["Reproducibility and deployment"]
+        N["Apache NiFi<br/><b>integration-ready ingestion</b>"]
+        S["Snakemake v0.3.1<br/><b>implemented research DAG</b>"]
+        K["Docker + Compose<br/><b>implemented runtime</b>"]
+        C1["GitHub Actions<br/><b>implemented CI</b>"]
+        AF["Airflow<br/><b>integration-ready scheduling</b>"]
+        R["Local · Slurm · Cloud"]
+        N --> S
+        K --> S
+        C1 --> S
+        AF --> S
+        S --> R
+    end
+
+    E --> F
+    N -. "validated inputs" .-> A
+    S -. "orchestrates reproducible stages" .-> E
+    S -. "records model and evaluation artifacts" .-> G
+
+    classDef complete fill:#1b4332,stroke:#2d6a4f,color:#fff;
+    classDef next fill:#7c2d12,stroke:#ea580c,color:#fff;
+    classDef active fill:#023047,stroke:#219ebc,color:#fff;
+    classDef planned fill:#3c3744,stroke:#7a7788,color:#fff;
+    classDef integration fill:#fff3cd,stroke:#d97706,color:#111827;
+
+    class B,C complete;
+    class D next;
+    class E,F,G,S,K,C1 active;
+    class H,I planned;
+    class N,AF integration;
+```
+
+The research stages and the platform layer intentionally have different status
+labels. The real-data cohorts and quality-control results are not outputs of the
+synthetic v0.3.1 demonstration, while the Snakemake/Docker/CI implementation is
+the reproducible software foundation used to extend that research safely.
 
 ### Separation of responsibilities
+
 | Technology | Responsibility |
 |---|---|
 | Apache NiFi | Continuous collection, routing, schema checks, provenance, replay and back-pressure |
@@ -130,16 +148,26 @@ flowchart TD
 | FastAPI | Online prediction and station-diagnostic interface |
 | Graph-RAG layer | Links stations, experiments, metrics, documents and evidence |
 
-### Snakemake v0.3.1 workflow
+NiFi is not used to train models, and Snakemake is not used as a streaming
+engine. This boundary keeps the analytical workflow testable and the ingestion
+layer operationally manageable.
+
+## Snakemake v0.3.1 workflow
+
 The validated workflow executes six dependency-aware steps:
+
+```text
 make_demo
     └── train
           └── evaluate
                 └── build_knowledge
                       └── diagnose_station
                             └── all
-                            
+```
+
 Run it locally:
+
+```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,api,workflow]"
@@ -154,57 +182,121 @@ snakemake \
   --snakefile workflow/Snakefile \
   --workflow-profile workflow/profiles/local \
   --cores 8
+```
 
 Expected outputs:
+
+```text
 data/demo.csv
 artifacts/residual_corrector.joblib
 artifacts/training_summary.json
 artifacts/evaluation.json
 artifacts/test_predictions.csv
 artifacts/evidence_graph.json
-reports/diagnostic_S000.txt 
+reports/diagnostic_S000.txt
+```
 
 An unchanged repeat run should report:
+
+```text
 Nothing to be done (all requested files are present and up to date).
-See [README.md](workflow/README.md) for local and Slurm execution.
-Current model
+```
+
+See [workflow/README.md](workflow/README.md) for local and Slurm execution.
+
+## Current model
+
 The v0.3.1 baseline estimates the residual between observed discharge and the
 physical forecast:
 
-e_t = Q_{observed,t} - Q_{NWM,t}
-\hat{Q}_{corrected,t} = \max(0, Q_{NWM,t} + \hat{e}_t)
+$$
+e_t = Q_{\mathrm{obs},t} - Q_{\mathrm{NWM},t}
+$$
 
+The histogram-gradient-boosting model learns the conditional residual from the
+predictor vector $\mathbf{X}_t$:
+
+$$
+\widehat{e}_t = f_{\boldsymbol{\theta}}(\mathbf{X}_t).
+$$
+
+The final non-negative discharge estimate is
+
+$$
+\widehat{Q}_{\mathrm{corrected},t}
+= \max\!\left(0,\;Q_{\mathrm{NWM},t}+\widehat{e}_t\right).
+$$
 
 Features include NWM-like flow, precipitation, temperature, soil moisture,
 snow-water equivalent, reservoir-storage change, recent residuals, upstream
 flow context, basin attributes, regulation status, and cyclical seasonality.
 
+Day of year is encoded without an artificial discontinuity between December
+and January:
+
+$$
+\mathrm{DOY}_{\sin,t}=\sin\!\left(\frac{2\pi\,\mathrm{DOY}_t}{365.25}\right),
+\qquad
+\mathrm{DOY}_{\cos,t}=\cos\!\left(\frac{2\pi\,\mathrm{DOY}_t}{365.25}\right).
+$$
+
 High-flow observations receive additional training weight. The current model is
 a same-time residual-correction baseline; multi-horizon targets are future work.
-Evaluation
+
+## Evaluation
+
 The workflow reports KGE, NSE, RMSE, MAE, percent bias, bias ratio, variability
 ratio, correlation, critical success index, probability of detection,
 false-alarm ratio, station-level KGE change, failure-cohort recovery, and
 degradation counts for initially strong stations.
-Synthetic verification result
+
+For $n$ observations $Q_i$ and predictions $\widehat{Q}_i$, the principal
+continuous metrics are
+
+$$
+\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^{n}
+\left(\widehat{Q}_i-Q_i\right)^2},
+\qquad
+\mathrm{MAE}=\frac{1}{n}\sum_{i=1}^{n}\left|\widehat{Q}_i-Q_i\right|,
+$$
+
+$$
+\mathrm{PBIAS}=100\,
+\frac{\sum_{i=1}^{n}\left(\widehat{Q}_i-Q_i\right)}
+{\sum_{i=1}^{n}Q_i},
+$$
+
+$$
+\mathrm{NSE}=1-
+\frac{\sum_{i=1}^{n}\left(Q_i-\widehat{Q}_i\right)^2}
+{\sum_{i=1}^{n}\left(Q_i-\overline{Q}\right)^2},
+$$
+
+and
+
+$$
+\mathrm{KGE}=1-\sqrt{(r-1)^2+(\alpha-1)^2+(\beta-1)^2},
+$$
+
+where $r$ is the observed–predicted correlation,
+$\alpha=\sigma_{\widehat{Q}}/\sigma_Q$ is the variability ratio, and
+$\beta=\mu_{\widehat{Q}}/\mu_Q$ is the bias ratio.
+
+For high-flow event detection, with hits $H$, misses $M$, and false alarms
+$F$, the workflow reports
+
+$$
+\mathrm{POD}=\frac{H}{H+M},
+\qquad
+\mathrm{FAR}=\frac{F}{H+F},
+\qquad
+\mathrm{CSI}=\frac{H}{H+M+F}.
+$$
+
+### Synthetic verification result
+
 One validated v0.3.1 run produced:
 
-## Previous graph-ML and streaming research
-
-Earlier HYDRO-FLOW-AI experiments investigated river-network-aware machine
-learning and Kafka-assisted streaming analysis. These experiments provide
-research evidence and architectural foundations for the current platform.
-
-They are retained as a separate research track because the present v0.3.1
-release validates a Snakemake-orchestrated residual-correction baseline and
-deterministic evidence graph. The earlier graph-ML and Kafka findings should
-not be presented as results reproduced by v0.3.1 until their original data,
-configurations, checkpoints and evaluation procedures are incorporated into
-the current workflow.
-
-Kafka remains relevant for high-frequency event transport, while Apache NiFi
-is intended for source ingestion, validation, provenance and replay. The two
-systems are complementary rather than interchangeable.
 | Measure | Result |
 |---|---:|
 | Stations evaluated | 12 |
@@ -219,12 +311,58 @@ systems are complementary rather than interchangeable.
 These values validate pipeline behavior only. Synthetic relationships are more
 regular than operational hydrology and cannot establish real-world skill.
 
+## Previous graph-ML and Kafka research
+
+Earlier HYDRO-FLOW-AI experiments investigated river-network-aware machine
+learning and Kafka-assisted streaming analysis. These experiments remain
+scientifically relevant because they established an architectural foundation
+for representing upstream–downstream dependencies and transporting
+high-frequency hydrological events.
+
+They are retained as a distinct research track. The current v0.3.1 release
+reproduces the Snakemake-orchestrated residual-correction baseline and the
+deterministic evidence graph; it does not yet reproduce every earlier graph-ML
+or Kafka result. Those findings should therefore be reported with their
+original datasets, temporal splits, model configurations, checkpoints, metric
+definitions, and software versions.
+
+The components serve different purposes:
+
+| Component | Primary responsibility | Current status |
+|---|---|---|
+| River-network graph ML | Learn predictive upstream–downstream dependencies | Previous experimental track |
+| Evidence graph / Graph-RAG | Retrieve source-linked station and experiment evidence | Implemented deterministic baseline |
+| Apache Kafka | Transport high-frequency event messages | Previous streaming prototype |
+| Apache NiFi | Ingest, validate, route, trace and replay source data | Integration-ready |
+| Snakemake | Reproduce file-based scientific analyses | Implemented |
+
+Graph-ML predictive results must not be pooled with the synthetic v0.3.1
+verification statistics unless both are regenerated under the same documented
+evaluation protocol.
+
+## Planned uncertainty outputs
+
+Future multi-horizon models will estimate conditional quantiles
+$\widehat{Q}^{(\tau)}_{t+h}$ and calibrated prediction intervals. The intended
+extreme-event output is the probability of exceeding a decision threshold,
+
+$$
+\Pr\!\left(Q_{t+h}>Q_{\mathrm{critical}}\mid\mathbf{X}_t\right),
+$$
+
+rather than only a single deterministic discharge estimate. Coverage,
+sharpness, calibration, and threshold reliability will be assessed separately
+from point-prediction accuracy.
+
 ## Graph-RAG diagnostics
+
 The evidence layer connects gauges, catchments, NWM reaches, dataset versions,
 model runs, features, metrics, modelling decisions, and diagnostic reports.
 
+```bash
 hydroflow build-knowledge --artifacts artifacts
 hydroflow diagnose --artifacts artifacts --station S000
+```
 
 Station diagnosis uses an exact station-entity constraint. A report for S000
 cannot retrieve S001 merely because both records contain terms such as “KGE” or
@@ -236,6 +374,7 @@ NiFi is the proposed operational ingestion layer for USGS observations, NWM
 forecast vintages, meteorological forecasts, SNOTEL snow-water equivalent,
 reservoir operations, and station/catchment metadata.
 
+```text
 Fetch or receive data
     → attach source and issue-time metadata
     → validate schema and freshness
@@ -243,653 +382,149 @@ Fetch or receive data
     → quarantine invalid records
     → retain an immutable raw copy
     → publish validated data for Snakemake
-
-### Dataset scopes
-
-HYDRO-FLOW-AI currently uses two complementary dataset scopes.
-
-**Validated reconstruction dataset**
-- 5,740 daily observations
-- 2 USGS gauges
-- 2012–2019
-- one-to-one date reconstruction independently validated
-- used to establish the reproducible temporal modeling workflow
-
-**Multi-station NWM evaluation dataset**
-- 296,161 station-day observations
-- 30 USGS stations
-- approximately 1990–2020, depending on station availability
-- used for raw NWM baseline evaluation, high-flow diagnostics,
-  scale-anomaly screening, and station eligibility assessment
-
-The multi-station QC workflow currently identifies 5 stations requiring
-review before pooled machine-learning experiments. Stations flagged by
-the automated screen are not assumed to be erroneous; they are withheld
-from pooled modeling until their NWM–USGS relationship has been
-scientifically adjudicated.
-
-
-
 ```
 
-## Stage 1 — Dataset reconstruction ✅
+NiFi deployment is optional in v0.3.1. The synthetic workflow remains fully
+runnable without it.
 
-The original ML export, `NWM_ML_Training_DF.csv`, retained hydrologic and environmental variables but removed `datetime` and `NWIS_site_id`.
+## Docker
 
-`src/hydro_flow_ai/reconstruct_dataset.py` restores those fields reproducibly.
-
-### Reconstruction logic
-
-1. Assign each training row to an NWIS gauge using retained latitude/longitude.
-2. Reconstruct a dated reference table from:
-
-   * `Climate.csv`
-   * observed USGS streamflow in `flow.pkl`
-3. Restrict candidate dates to the same:
-
-   * NWIS site;
-   * day-of-year.
-4. Match:
-
-   * temperature;
-   * precipitation;
-   * observed streamflow.
-5. Use an absolute numeric tolerance:
-
-```text
---match-atol 1e-5
+```bash
+docker build -t hydro-flow-ai:0.3.1 .
+docker compose up --build
 ```
 
-6. Require exactly **one** valid date for every original training row.
-7. Reject zero-match or multi-match cases instead of silently guessing.
-8. Validate uniqueness of `(NWIS_site_id, datetime)`.
+Open `http://localhost:8000/docs`. API output is research guidance, not an
+official forecast or warning.
 
-### Validated result
+## Real-data research foundation
 
-```text
-- 296,161 daily station records
-- 30 USGS stations
-- Utah and Idaho
-- 1990-01-01 through 2020-09-30 overall
-- observed USGS discharge (`flow_cms`)
-- raw NWM discharge (`NWM_flow`)
-- precipitation and temperature
-- storage and snow-water equivalent
-- static basin and land-cover attributes
-```
+The broader repository contains two complementary real-data scopes.
 
-Run:
+### Validated reconstruction cohort
 
-```fish
-python src/hydro_flow_ai/reconstruct_dataset.py
-```
+- 5,740 daily observations;
+- two Utah USGS gauges;
+- 2012–2019;
+- one-to-one date reconstruction independently validated;
+- intended to establish a leakage-aware temporal modelling workflow.
 
----
+| NWIS site | Station |
+|---|---|
+| `10133800` | East Canyon Creek near Jeremy Ranch, Utah |
+| `10133600` | McLeod Creek near Park City, Utah |
 
-## Stage 2 — Temporal feature engineering 🚧
+### Multi-station NWM evaluation cohort
 
-The next stage converts the dated dataset into a leakage-safe temporal feature matrix.
+- 296,161 station-day observations;
+- 30 USGS stations;
+- approximately 1990–2020, depending on station availability;
+- intended for raw NWM baselines, high-flow diagnostics, scale-anomaly
+  screening and eligibility assessment.
 
-### NWM flow features
+Five stations are currently flagged for scientific review before pooled
+modelling. A flag does not establish that a station is erroneous; unresolved
+stations remain outside the model-eligible cohort.
 
-```text
-NWM_flow_t
-NWM_flow_lag1
-NWM_flow_lag3
-NWM_flow_lag7
-```
+## Leakage controls
 
-### Antecedent precipitation
+- Use chronological or event-based splitting.
+- Keep complete storms within one split.
+- Use only forecast vintages available at issue time.
+- Fit scalers and imputers using training data only.
+- Prevent lagged observations from crossing the forecast issue time.
+- Incorporate realistic upstream travel times.
+- Derive event thresholds from training data or official thresholds.
+- Evaluate unseen basins and extreme periods.
 
-```text
-precip_1d
-precip_3d
-precip_7d
-precip_14d
-```
+## Repository structure
 
-The multi-day precipitation features are intended to represent antecedent watershed forcing rather than only same-day rainfall.
-
-### Temperature features
-
-```text
-temperature_t
-temperature_lag1
-temperature_lag3
-temperature_lag7
-```
-
-### Seasonal encoding
-
-Day-of-year is represented cyclically:
-
-[
-DOY_{\sin} =
-\sin\left(\frac{2\pi,DOY}{365.25}\right)
-]
-
-[
-DOY_{\cos} =
-\cos\left(\frac{2\pi,DOY}{365.25}\right)
-]
-
-### Static watershed features
-
-Current variables include:
-
-* drainage area;
-* mean basin elevation;
-* percentage forest cover;
-* percentage developed land;
-* percentage impervious surface;
-* percentage herbaceous cover;
-* percentage steep slope;
-* mean annual precipitation.
-
----
-
-## Leakage-safe experiment design
-
-A random split is intentionally avoided because adjacent daily observations are temporally autocorrelated.
-
-```mermaid
-flowchart LR
-
-    A["2012–2017<br/><b>TRAIN</b>"]
-    B["2018<br/><b>VALIDATION</b>"]
-    C["2019<br/><b>HELD-OUT TEST</b>"]
-    D["Final research metrics"]
-
-    A -->|"fit preprocessing + model"| B
-    B -->|"model selection / tuning"| C
-    C -->|"final evaluation only"| D
-
-    style A fill:#dcfce7,stroke:#16a34a
-    style B fill:#fef3c7,stroke:#d97706
-    style C fill:#fee2e2,stroke:#dc2626
-    style D fill:#dbeafe,stroke:#2563eb
-```
-
-This design protects the final reported performance from temporal leakage and repeated access to the test period.
-
----
-
-## Stage 3 — Residual-correction baseline
-
-The initial machine-learning baseline is **XGBoost residual correction**.
-
-The target is:
-
-[
-e_t =
-Q^{obs}_t - Q^{NWM}_t
-]
-
-The model learns:
-
-[
-\hat e_t = f_{\theta}(X_t)
-]
-
-The corrected prediction becomes:
-
-[
-\hat Q^{corrected}_t =
-Q^{NWM}_t + \hat e_t
-]
-
-This preserves the NWM prediction as the reference hydrologic estimate while allowing ML to learn systematic local error.
-
----
-
-# Extreme-aware evaluation
-
-Average performance alone can conceal severe errors during rare high-flow events.
-
-HYDRO-FLOW-AI therefore separates conventional metrics from extreme-flow metrics.
-
-## Standard metrics
-
-| Metric | Purpose                                                |
-| ------ | ------------------------------------------------------ |
-| RMSE   | penalizes large prediction errors                      |
-| MAE    | average absolute prediction error                      |
-| Bias   | systematic over- or underprediction                    |
-| NSE    | hydrologic predictive efficiency                       |
-| KGE    | combined correlation, variability, and bias assessment |
-
-## Extreme-focused metrics
-
-| Metric               | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| Q95 RMSE             | error above the 95th-percentile flow threshold |
-| Q99 RMSE             | error in the most extreme tail                 |
-| Peak magnitude error | accuracy of maximum discharge                  |
-| Peak timing error    | timing displacement of observed peaks          |
-| POD                  | probability of detection                       |
-| FAR                  | false-alarm ratio                              |
-| CSI                  | critical success index                         |
-| Precision / Recall   | class-imbalance-aware event detection          |
-
----
-
-# Uncertainty quantification
-
-Future deterministic predictions will be extended with uncertainty-aware outputs.
-
-Planned methods include:
-
-* quantile regression;
-* calibrated prediction intervals;
-* conformal prediction;
-* interval coverage;
-* interval sharpness;
-* reliability analysis;
-* probability of threshold exceedance.
-
-The eventual extreme-event prediction target is:
-
-[
-P(Q_{t+h} > Q_{critical})
-]
-
-rather than only a single deterministic discharge value.
-
----
-
-# Advanced AI roadmap
-
-```mermaid
-flowchart TD
-
-    A["Extreme-aware XGBoost<br/>residual baseline"]
-    B["LSTM / GRU<br/>temporal sequence model"]
-    C["Transformer / N-HiTS<br/>multi-scale temporal model"]
-    D["Directed river-network GNN<br/>upstream → downstream"]
-    E["Hybrid spatiotemporal architecture"]
-    F["Probabilistic extreme-event head"]
-    G["Uncertainty calibration"]
-    H["Ablation study"]
-    I["Final model comparison"]
-
-    A --> B
-    A --> C
-
-    B --> E
-    C --> E
-    D --> E
-
-    E --> F
-    F --> G
-    G --> H
-    H --> I
-
-    style A fill:#fff7ed,stroke:#ea580c
-    style B fill:#eff6ff,stroke:#2563eb
-    style C fill:#eff6ff,stroke:#2563eb
-    style D fill:#f5f3ff,stroke:#7c3aed
-    style E fill:#ecfdf5,stroke:#059669
-    style F fill:#fff1f2,stroke:#e11d48
-    style G fill:#f0fdfa,stroke:#0f766e
-    style H fill:#f8fafc,stroke:#475569
-    style I fill:#f8fafc,stroke:#334155
-```
-
----
-
-# Repository structure
 ```text
 HYDRO-FLOW-AI/
-├── .github/
-│   └── workflows/
-│       └── ci.yml                      # Automated linting, tests and smoke run
-│
+├── .github/workflows/ci.yml
 ├── configs/
-│   ├── base.yaml                       # Shared modelling configuration
-│   └── workflow.yaml                   # Snakemake inputs and outputs
-│
-├── dags/
-│   └── hydroflow_pipeline.py           # Airflow integration-ready scheduler
-│
-├── data/                               # Generated or local data; Git-ignored
-│   ├── raw/                            # Immutable source data
-│   ├── validated/                      # Schema-validated records
-│   ├── processed/                      # Analysis-ready feature tables
-│   └── demo.csv                        # Synthetic demonstration dataset
-│
+├── dags/hydroflow_pipeline.py
 ├── docs/
-│   ├── assets/
-│   │   └── HYDRO-FLOW-AI-banner-v0.3.1-current.png
-│   ├── KNOWLEDGE_GRAPH.md
-│   ├── MODEL_CARD.md
-│   ├── PROJECT_PLAN.md
-│   └── REFERENCES.md
-│
-├── examples/
-│   ├── demo.csv
-│   └── VERIFICATION.txt
-│
 ├── knowledge/
-│   ├── adapters/
-│   │   └── README.md
-│   ├── prompts/
-│   │   └── station_diagnosis.md
-│   └── schemas/
-│       ├── entities.yaml
-│       └── relationships.yaml
-│
-├── nifi/                               # Integration-ready; not deployed in v0.3.1
-│   ├── README.md
-│   ├── parameter-context.example.json
-│   └── flows/
-│       └── hydroflow_ingestion.json
-│
-├── artifacts/                          # Generated model artifacts; Git-ignored
-│   ├── residual_corrector.joblib
-│   ├── training_summary.json
-│   ├── evaluation.json
-│   ├── test_predictions.csv
-│   └── evidence_graph.json
-│
-├── reports/                            # Generated reports; Git-ignored
-│   ├── diagnostic_S000.txt
-│   └── workflow_dag.png
-│
 ├── src/
-│   ├── hydro_flow_ai/                  # Original reconstruction package
-│   │   └── reconstruct_dataset.py
-│   │
-│   └── hydroflow_ai/                   # v0.3.1 application package
-│       ├── __init__.py
-│       ├── api.py                      # FastAPI endpoints
-│       ├── cli.py                      # hydroflow command-line interface
-│       ├── data.py                     # Synthetic data and data utilities
-│       ├── diagnostics.py              # Station-level diagnostics
-│       ├── evaluate.py                 # Hydrological evaluation
-│       ├── knowledge.py                # Evidence-graph construction
-│       ├── metrics.py                  # KGE, NSE and event metrics
-│       ├── model.py                    # Residual-correction estimator
-│       ├── network.py                  # River-network utilities
-│       ├── schemas.py                  # Data-validation schemas
-│       └── train.py                    # Training workflow
-│
+│   ├── hydro_flow_ai/          # original reconstruction package
+│   └── hydroflow_ai/           # v0.3.1 correction/diagnostic package
 ├── tests/
-│   └── test_pipeline.py                # End-to-end pipeline tests
-│
 ├── workflow/
-│   ├── Snakefile                      # Main reproducible research DAG
-│   ├── README.md                      # Local and Slurm instructions
+│   ├── Snakefile
 │   ├── envs/
-│   │   └── hydroflow.yaml             # Conda environment
 │   └── profiles/
-│       ├── local/
-│       │   └── config.yaml
-│       └── slurm/
-│           └── config.yaml
-│
-├── .dockerignore
-├── .gitignore
-├── Dockerfile                         # Application container
-├── docker-compose.yml                 # Local service orchestration
-├── LICENSE
-├── Makefile                           # Convenient development commands
-├── pyproject.toml                     # Package metadata and dependencies
-└── README.md
+├── Dockerfile
+├── docker-compose.yml
+├── Makefile
+└── pyproject.toml
 ```
-Status interpretation:
-| Directory or file | Status |
-|---|---|
-| `workflow/` | Implemented and validated |
-| `src/hydroflow_ai/` | Implemented |
-| `knowledge/` | Implemented deterministic evidence layer |
-| `Dockerfile` and `docker-compose.yml` | Implemented |
-| `.github/workflows/ci.yml` | Implemented |
-| `dags/` | Airflow integration-ready |
-| `nifi/` | Recommended integration-ready addition |
-| `data/`, `artifacts/`, and `reports/` | Runtime-generated and normally excluded from Git |
-| Advanced GNN and uncertainty modules | Future work; do not add as implemented modules yet |
 
-```text
-Google Drive — collaborative/source data
-        │
-        ├── NWM data
-        ├── USGS streamflow
-        ├── climate data
-        ├── site/basin data
-        └── collaborator-provided datasets
-                │
-                ▼
-Local HYDRO-FLOW-AI/data/
-        │
-        ├── raw/          ← downloaded source data
-        ├── interim/      ← intermediate transformations
-        ├── processed/    ← cleaned datasets
-        └── derived/      ← ML-ready datasets
-                │
-                ▼
-GitHub — code + documentation only
-```
-# Data Sources
+Generated data, models, reports, Snakemake state, and virtual environments are
+excluded from version control.
 
-HYDRO-FLOW-AI integrates hydrologic, meteorological, and watershed
-information from multiple sources.
-
-## Data provenance
-
-| Source | Data | Role |
-|---|---|---|
-| USGS NWIS | Observed streamflow | Ground-truth discharge |
-| National Water Model (NWM) | Simulated streamflow | Baseline/model input |
-| Climate forcing | Temperature and precipitation | Meteorological predictors |
-| Basin/site attributes | Watershed characteristics | Static predictors |
-| Collaborative research data | Project-specific hydrologic datasets | Model development and validation |
-
-## Collaborative data
-
-Additional project datasets are maintained in a shared Google Drive
-workspace used by the research collaborators.
-
-These source datasets are intentionally excluded from the public GitHub
-repository. The repository contains the processing, reconstruction,
-feature-engineering, modeling, and evaluation code required for the
-HYDRO-FLOW-AI workflow.
-
-## Current study sites
-
-- USGS NWIS 10133800
-- USGS NWIS 10133600
-
-Study period: 2012–2019.
----
-
-# Quick start
-
-## 1. Clone the repository
+## Direct CLI use
 
 ```bash
-git clone https://github.com/mtariqi/HYDRO-FLOW-AI.git
-cd HYDRO-FLOW-AI
+hydroflow make-demo --output data/demo.csv
+hydroflow train --data data/demo.csv --output artifacts
+hydroflow evaluate --data data/demo.csv --artifacts artifacts
+hydroflow build-knowledge --artifacts artifacts
+hydroflow diagnose --artifacts artifacts --station S000
+hydroflow serve --artifacts artifacts
+hydroflow smoke
 ```
 
-## 2. Create a virtual environment
+## Reproducibility principles
 
-### Bash / Zsh
+- Configuration is separated from code.
+- Intermediate artifacts are explicit workflow products.
+- Chronological splits replace random row splitting.
+- Dependencies are declared in `pyproject.toml`.
+- Docker provides a portable runtime.
+- CI executes linting, tests, and a smoke workflow.
+- Diagnostics include evidence identifiers and sources.
+- Strong stations are monitored for degradation, not only weak stations for gain.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+## Roadmap
 
-### Fish
+### v0.4
 
-```fish
-python3 -m venv .venv
-source .venv/bin/activate.fish
-```
+- issue-time-safe multi-horizon targets from 15 minutes to 24 hours;
+- per-station validation summaries and explicit skill classes;
+- official or training-derived event thresholds;
+- probabilistic quantiles and calibration;
+- real USGS/NWM ingestion adapters.
 
-## 3. Install dependencies
+### Later research
 
-```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
+- temporal GRU or Temporal Fusion Transformer;
+- travel-time-aware river-network GNN;
+- adaptive NWM/GBM/GNN gating;
+- NiFi deployment and replay testing;
+- Airflow champion-challenger scheduling;
+- drift and data-freshness monitoring;
+- transfer evaluation on unseen basins.
 
-## 4. Add source data locally
+## Documentation
 
-Large source and derived datasets are intentionally excluded from Git.
+- [Workflow instructions](workflow/README.md)
+- [Project plan](docs/PROJECT_PLAN.md)
+- [Model card](docs/MODEL_CARD.md)
+- [Knowledge graph](docs/KNOWLEDGE_GRAPH.md)
+- [References](docs/REFERENCES.md)
 
-Place or link the required input files according to the local project configuration before running the reconstruction pipeline.
+## Citation
 
-## 5. Run dataset reconstruction
+If you use this research software, cite the repository and the exact release or
+commit used. A formal archival citation will be added after an archival release.
 
-```bash
-python src/hydro_flow_ai/reconstruct_dataset.py
-```
+## Contributing
 
-Expected validation:
+Contributions should preserve temporal validity, source provenance,
+station-level evaluation, deterministic workflow behavior, and the distinction
+between implemented capabilities and future research claims.
 
-```text
-Original training rows : 5740
-Unique matched rows    : 5740
-Problem row IDs        : 0
-```
+## License
 
----
-
-# Reproducibility principles
-
-HYDRO-FLOW-AI follows several methodological constraints:
-
-* no random temporal split for the primary experiment;
-* no future information in predictor construction;
-* an untouched final test period;
-* standard and extreme-flow metrics reported separately;
-* failed reconstruction is explicit rather than silently corrected;
-* derived datasets are reproducibly generated;
-* large data and model artifacts remain outside source control;
-* raw NWM performance is retained as a comparison baseline;
-* feature and architecture additions are evaluated using ablation studies;
-* uncertainty calibration is treated separately from point-prediction accuracy.
-
----
-
-# Data management
-
-Large hydrologic inputs and derived datasets are not stored directly in the GitHub repository.
-
-The repository tracks:
-
-* source code;
-* configuration;
-* documentation;
-* reproducible processing logic;
-* tests;
-* lightweight research outputs.
-
-Data directories are retained structurally with `.gitkeep` files while substantive datasets remain gitignored.
-
----
-
-# Collaborator
-
-**Mohammad Shahabul Alam, PhD**
-Assistant Professor, University of West Florida
-
-* GitHub: [shahab122](https://github.com/shahab122)
-* LinkedIn: [Mohammad Shahabul Alam](https://www.linkedin.com/in/md-shahabul-alam/)
-
----
-
-# Upstream reference
-
-This project extends ideas and data-processing workflows from the Alabama Water Institute **NWM-ML** project.
-
-HYDRO-FLOW-AI is maintained as an independent research repository focused on:
-
-* extreme-flow NWM bias correction;
-* leakage-safe temporal modeling;
-* extreme-event evaluation;
-* uncertainty quantification;
-* probabilistic threshold prediction;
-* temporal deep learning;
-* future river-network graph learning.
-
-Where upstream code, data-processing workflows, or methodological components are reused or adapted, the original project should be appropriately acknowledged and cited.
-
----
-
-# Project status
-
-| Component | Status |
-| --- | --- |
-| Repository architecture | ✅ Complete |
-| Dataset reconstruction | ✅ Complete |
-| 5,740-row one-to-one date validation | ✅ Complete |
-| Site/date duplicate validation | ✅ Complete |
-| Raw NWM baseline evaluation | ✅ Complete |
-| Station-specific Q95/Q99 evaluation | ✅ Complete |
-| Automated NWM scale-anomaly screening | ✅ Complete |
-| Scientific adjudication registry | ✅ Complete |
-| Station-level forensic audit utility | ✅ Complete |
-| QC test suite | ✅ Complete — 14 tests passing |
-| Multi-station collaborator dataset integration | ✅ Complete |
-| Feature provenance audit | ⏭️ Next |
-| Temporal feature engineering | ⏳ Planned |
-| Leakage-safe train/validation/test split | ⏳ Planned |
-| XGBoost residual correction baseline | ⏳ Planned |
-| Extreme-event evaluation | ⏳ Planned |
-| Uncertainty quantification | ⏳ Planned |
-| Temporal deep learning | 🔬 Research roadmap |
-| River-network GNN | 🔬 Research roadmap |
----
-
-# Technology stack
-
-<p>
-  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/pandas-data%20engineering-150458?logo=pandas&logoColor=white" alt="pandas">
-  <img src="https://img.shields.io/badge/NumPy-numerical%20computing-013243?logo=numpy&logoColor=white" alt="NumPy">
-  <img src="https://img.shields.io/badge/scikit--learn-machine%20learning-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn">
-  <img src="https://img.shields.io/badge/XGBoost-residual%20baseline-EB5E28" alt="XGBoost">
-  <img src="https://img.shields.io/badge/hydroeval-hydrologic%20metrics-0077B6" alt="hydroeval">
-  <img src="https://img.shields.io/badge/Matplotlib-visualization-11557C" alt="Matplotlib">
-  <img src="https://img.shields.io/badge/Ruff-code%20quality-D7FF64?logo=ruff&logoColor=black" alt="Ruff">
-</p>
-
----
-
-# Citation
-
-A formal software citation and versioned release will be added when the first stable research release is published.
-
-Until then, please cite:
-
-```text
-HYDRO-FLOW-AI
-https://github.com/mtariqi/HYDRO-FLOW-AI
-```
-
-and acknowledge the upstream NWM-ML project when its workflows or source components materially contribute to the analysis.
-
----
-
-# Contributing
-
-Reproducibility checks, hydrology-domain feedback, feature suggestions, model comparisons, and issue reports are welcome.
-
-For substantial changes, please open an issue describing:
-
-1. the hydrologic or machine-learning problem;
-2. the proposed change;
-3. expected validation criteria;
-4. implications for temporal leakage;
-5. implications for extreme-event evaluation;
-6. implications for uncertainty or calibration.
-
----
-
-<p align="center">
-  <strong>HYDRO-FLOW-AI</strong><br>
-  Better average predictions are useful.<br>
-  <strong>Better extreme-event predictions are the objective.</strong>
-</p>
+MIT License. See [LICENSE](LICENSE).

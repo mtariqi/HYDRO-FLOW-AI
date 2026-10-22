@@ -620,6 +620,19 @@ HYDRO-FLOW-AI/
 ├── pyproject.toml                     # Package metadata and dependencies
 └── README.md
 ```
+Status interpretation:
+| Directory or file | Status |
+|---|---|
+| `workflow/` | Implemented and validated |
+| `src/hydroflow_ai/` | Implemented |
+| `knowledge/` | Implemented deterministic evidence layer |
+| `Dockerfile` and `docker-compose.yml` | Implemented |
+| `.github/workflows/ci.yml` | Implemented |
+| `dags/` | Airflow integration-ready |
+| `nifi/` | Recommended integration-ready addition |
+| `data/`, `artifacts/`, and `reports/` | Runtime-generated and normally excluded from Git |
+| Advanced GNN and uncertainty modules | Future work; do not add as implemented modules yet |
+
 ```text
 Google Drive — collaborative/source data
         │

@@ -8,6 +8,7 @@
 <p align="center"><strong>Physics-guided streamflow correction, reproducible workflows, and evidence-linked hydrological diagnostics.</strong></p>
 
 <p align="center">
+  <a href="https://doi.org/10.5281/zenodo.24355655"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.24355655-1682D4?logo=zenodo&logoColor=white" alt="DOI"/></a>
   <a href="https://github.com/mtariqi/HYDRO-FLOW-AI"><img src="https://img.shields.io/badge/GitHub-mtariqi%2FHYDRO--FLOW--AI-181717?logo=github" alt="GitHub repository"></a>
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/Snakemake-9.27-039475" alt="Snakemake 9.27">
